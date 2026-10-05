@@ -2,17 +2,11 @@
 
 import { useSession } from '@/components/session';
 import { isAdmin } from '@/lib/admin';
-import { useEffect, useState } from 'react';
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const { session } = useSession();
-  const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    setReady(true);
-  }, []);
-
-  if (!ready || session.status === 'loading') {
+  if (session.status === 'loading') {
     return <p>Ładowanie...</p>;
   }
 
