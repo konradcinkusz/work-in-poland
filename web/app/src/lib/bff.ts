@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { AuthUpstreamError, authRequest, type AuthResponse } from './authservice';
-import { ACCESS_COOKIE, REFRESH_COOKIE, clearSessionCookies, setSessionCookies, type CookieWriter } from './cookies';
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  clearSessionCookies,
+  setSessionCookies,
+  type CookieWriter,
+} from './cookies';
 import { resolveAccess, type ResolvedAccess } from './session';
 
 export function json(data: unknown, status = 200, headers: Record<string, string> = {}): NextResponse {
@@ -67,4 +73,4 @@ export async function sessionFor(req: NextRequest): Promise<RequestSession> {
   };
 }
 
-export { authRequest, AuthUpstreamError };
+export { authRequest, AuthUpstreamError, setSessionCookies };
