@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { JobForm } from '@/components/job-form';
+import { JobForm, JobStats } from '@/components/job-form';
 
 export const metadata: Metadata = { title: 'Edycja oferty', description: 'Edytuj ofertę pracy.', robots: { index: false } };
 
@@ -8,6 +8,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-6">
       <h1>Edycja oferty</h1>
+      <JobStats jobId={id} />
       <JobForm jobId={id} />
     </div>
   );
