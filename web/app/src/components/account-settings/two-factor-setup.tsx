@@ -128,15 +128,13 @@ export function TwoFactorSetup({ onSetupComplete }: Props) {
       ) : qrCode ? (
         <div className="space-y-4">
           <div className="flex justify-center">
-            {qrCode && (
-              <Image
-                src={qrCode}
-                alt="QR kod do aplikacji autentykacyjnej"
-                width={192}
-                height={192}
-                className="border border-slate-300 p-2"
-              />
-            )}
+            <Image
+              src={qrCode}
+              alt="QR kod do aplikacji autentykacyjnej"
+              width={192}
+              height={192}
+              className="border border-slate-300 p-2"
+            />
           </div>
 
           {setupData?.sharedKey && (
