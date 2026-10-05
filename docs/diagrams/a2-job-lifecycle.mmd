@@ -1,0 +1,9 @@
+stateDiagram-v2
+    [*] --> draft: create (publish=false)
+    [*] --> published: create (publish=true) — full validation
+    draft --> published: publish — salary range required
+    published --> closed: employer closes / admin unpublishes
+    published --> expired: expiresAt passes (30 days)
+    closed --> published: renew
+    expired --> published: renew
+    draft --> [*]: delete (drafts only)

@@ -1,0 +1,14 @@
+{
+  "name": "work-in-poland",
+  "private": true,
+  "description": "Workspace root of the work-in-poland web app and its e2e suite.",
+  "packageManager": "pnpm@12.9.1",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "lint": "pnpm --filter work-in-poland-web lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm --filter work-in-poland-web test",
+    "build": "pnpm --filter work-in-poland-web build",
+    "e2e": "pnpm --filter e2e test"
+  }
+}

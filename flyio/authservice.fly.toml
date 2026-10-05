@@ -1,0 +1,68 @@
+# authservice: the system's only identity provider (ADR 0003). Runs the PUBLISHED image; its source
+# is never vendored or modified. Configuration lives here; secrets are `fly secrets`.
+app = "work-in-poland-authservice-prod"
+primary_region = "waw"
+
+[build]
+  image = "ghcr.io/konradcinkusz/authservice:v0.3.4"   # pinned: authservice is 0.x and its contract may still move
+
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  ASPNETCORE_URLS = "http://+:8080"
+  DATABASE_PROVIDER = "PostgreSQL"
+  Database__SchemaMode = "Migrate"
+  Database__MigrationsAssembly = "AuthService.Migrations.PostgreSQL"
+  # Product-specific, so a token from another product on the same image cannot authenticate here.
+  Jwt__Issuer = "WorkInPoland"
+  Jwt__Audience = "WorkInPoland"
+  Jwt__Algorithm = "RS256"
+  # The issuer of MCP tokens and the origin of jwks_uri. Public https origin, no path.
+  Jwt__PublicBaseUrl = "https://work-in-poland-authservice-prod.fly.dev"
+  App__Name = "Work in Poland"
+  FrontendBaseUrl = "https://work-in-poland-web-prod.fly.dev"
+  OAuth__CallbackBaseUrl = "https://work-in-poland-authservice-prod.fly.dev"
+  OAuth__PostLoginRedirectBaseUrl = "https://work-in-poland-web-prod.fly.dev"
+  OAuth__PostLoginRedirectAllowedBaseUrls__0 = "https://work-in-poland-authservice-prod.fly.dev"
+  # Nothing reaches the app except through Fly's TLS-terminating proxy, so trust its forwarded headers.
+  Network__TrustAllProxies = "true"
+  ConsentVersions__Terms = "2026-10-05"
+  ConsentVersions__Privacy = "2026-10-05"
+  ConsentVersions__Cookies = "2026-10-05"
+
+  # MCP connector client (Claude web, desktop and mobile). The client SECRET and the encryption
+  # key are secrets (flyio/SECRETS.md). Resource = the canonical URI of the API's OAuth MCP route.
+  AuthorizationServer__Clients__0__ClientId = "claude-work-in-poland"
+  AuthorizationServer__Clients__0__DisplayName = "Claude"
+  AuthorizationServer__Clients__0__RedirectUris__0 = "https://claude.ai/api/mcp/auth_callback"
+  AuthorizationServer__Clients__0__AllowedScopes__0 = "jobs:read"
+  AuthorizationServer__Clients__0__AllowedScopes__1 = "tracker:write"
+  AuthorizationServer__Clients__0__AllowedScopes__2 = "employer:write"
+  AuthorizationServer__Clients__0__AllowedScopes__3 = "offline_access"
+  AuthorizationServer__Clients__0__AllowedResources__0 = "https://work-in-poland-api-prod.fly.dev/mcp/account"
+  AuthorizationServer__Scopes__0__Name = "jobs:read"
+  AuthorizationServer__Scopes__0__Description = "Wyszukiwanie ofert pracy i odczyt Twojej listy aplikacji"
+  AuthorizationServer__Scopes__1__Name = "tracker:write"
+  AuthorizationServer__Scopes__1__Description = "Zapisywanie ofert i zmiana statusu Twoich aplikacji"
+  AuthorizationServer__Scopes__2__Name = "employer:write"
+  AuthorizationServer__Scopes__2__Description = "Zarządzanie firmami i ofertami pracy, które publikujesz"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # 1, not 0: every validator (the API, the web middleware) fetches this app's JWKS in-request, on
+  # first use and again whenever its cache expires, so this app sits on the synchronous request path
+  # of all of them. Claude also waits at most 10 s for the discovery and token endpoints
+  # (FLY-IO-DEPLOYMENT §7; authservice docs/DEPLOYMENT.md).
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    path = "/health/ready"            # readiness: 503 until the schema is initialised
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "60s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

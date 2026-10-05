@@ -1,0 +1,13 @@
+# Default owner for everything.
+*                                   @konradcinkusz
+
+# Paths where a change is a change to the security model, listed separately so it is
+# visible as such in the review queue.
+/src/WorkInPoland.ServiceDefaults/  @konradcinkusz
+/src/WorkInPoland.Api/Mcp/          @konradcinkusz
+/web/app/src/middleware.ts          @konradcinkusz
+/web/app/src/lib/                   @konradcinkusz
+/web/app/src/app/api/               @konradcinkusz
+/flyio/                             @konradcinkusz
+/.github/workflows/                 @konradcinkusz
+/docs/adr/                          @konradcinkusz

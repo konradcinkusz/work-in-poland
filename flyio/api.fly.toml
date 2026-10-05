@@ -1,0 +1,47 @@
+# work-in-poland API: REST + MCP (ADR 0002). One stateless HTTP service.
+app = "work-in-poland-api-prod"      # globally unique across all of Fly: system + service + env
+primary_region = "waw"               # ADR 0008
+
+[build]
+  dockerfile = "../src/WorkInPoland.Api/Dockerfile"   # relative to THIS FILE
+  context = ".."                                      # relative to THIS FILE: the repository root
+
+[env]                                # public configuration only; secrets are `fly secrets` (flyio/SECRETS.md)
+  ASPNETCORE_ENVIRONMENT = "Production"
+  ASPNETCORE_URLS = "http://+:8080"
+  DATABASE_PROVIDER = "PostgreSQL"
+  Jwt__Authority = "https://work-in-poland-authservice-prod.fly.dev"
+  Jwt__Issuer = "WorkInPoland"
+  Jwt__Audience = "WorkInPoland"
+  Mcp__ResourceUri = "https://work-in-poland-api-prod.fly.dev/mcp/account"
+  Mcp__AuthorizationServer = "https://work-in-poland-authservice-prod.fly.dev"
+  # Fly's proxy is in front of every request, so the client address is in Fly-Client-IP.
+  # Trusted only because this file says a proxy is in front (SERVICE-API-PATTERNS §1).
+  Network__ClientIpHeader = "Fly-Client-IP"
+  Network__TrustProxyClientIpHeader = "true"
+
+[http_service]
+  internal_port = 8080               # must equal the port the process binds
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # 1, not 0: the web app's server side calls this service in-request (every page render and
+  # every BFF proxy call), so this app is on the synchronous request path of the frontend
+  # (FLY-IO-DEPLOYMENT §7). The cheaper option is 0 at the price of a several-second stall on
+  # the first page after idle — see flyio/INFRASTRUCTURE-ANALYSIS.md.
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+  [[http_service.checks]]
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "60s"             # covers .NET cold start; migrations run after the listener is up
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

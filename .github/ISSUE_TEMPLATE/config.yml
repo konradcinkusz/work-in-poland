@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/konradcinkusz/work-in-poland/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.
+  - name: Question about running the system
+    url: https://github.com/konradcinkusz/work-in-poland/blob/main/README.md
+    about: The README and docs/ cover setup, configuration and the API surface.

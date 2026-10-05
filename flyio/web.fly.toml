@@ -1,0 +1,47 @@
+# work-in-poland web: the Next.js product surface and BFF (FRONTEND-BFF).
+app = "work-in-poland-web-prod"
+primary_region = "waw"
+
+[build]
+  dockerfile = "../web/app/Dockerfile"
+  context = ".."                      # repository root: the pnpm workspace is an input
+
+[env]
+  # Runtime configuration, read per request by /api/config and the BFF routes — never baked
+  # into the bundle, so one image serves every environment (P12).
+  NODE_ENV = "production"
+  PORT = "3000"
+  HOSTNAME = "0.0.0.0"
+  API_BASE_URL = "https://work-in-poland-api-prod.fly.dev"
+  AUTH_BASE_URL = "https://work-in-poland-authservice-prod.fly.dev"
+  AUTH_PUBLIC_URL = "https://work-in-poland-authservice-prod.fly.dev"
+  AUTH_ISSUER = "WorkInPoland"
+  AUTH_AUDIENCE = "WorkInPoland"
+  PUBLIC_API_URL = "https://work-in-poland-api-prod.fly.dev"
+  PUBLIC_SITE_URL = "https://work-in-poland-web-prod.fly.dev"
+  CONSENT_TERMS_VERSION = "2026-10-05"
+  CONSENT_PRIVACY_VERSION = "2026-10-05"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # 0: entered only from a browser. A cold start here is a slow first page, not a failed call.
+  min_machines_running = 0
+  # Keep ONE web machine at most: the refresh-token rotation is serialised in-process (docs/ux/UI-UX.md).
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+  [[http_service.checks]]
+    path = "/healthz"                 # a dedicated route, not the index page (FLY-IO-DEPLOYMENT §2)
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

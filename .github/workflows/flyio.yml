@@ -1,0 +1,388 @@
+name: Fly.io deploy
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+#  push tag v*
+#    ├── test              build + unit tests (the same gates as ci.yml, because a tag is an act)
+#    ├── detect-changes    diff against the PREVIOUS TAG -> per-app flags. An app whose Fly app does
+#    │                     not exist is ALWAYS selected, so a cold estate comes up from one tag.
+#    ├── build (matrix)    one image per changed service -> ghcr.io, built ONCE (P12), fail-fast off
+#    ├── deploy-postgres   gated separately: redeploying Postgres restarts it
+#    ├── deploy-authservice  published image, pinned in flyio/authservice.fly.toml
+#    ├── deploy-api        needs authservice (it fetches the JWKS in-request)
+#    ├── deploy-web        needs api
+#    └── smoke             the public-URL journey the health checks cannot make
+#
+#  Order: postgres -> authservice -> api -> web. Every gate accepts `success || skipped` from its
+#  upstream: without `|| skipped`, change detection and ordering fight each other and any unchanged
+#  app in the middle of the chain blocks everything behind it (FLY-IO-DEPLOYMENT §10).
+#
+#  App and volume creation are idempotent and live HERE, never in someone's shell history (§11).
+#  One-time human setup is written down in flyio/SECRETS.md: FLY_API_TOKEN and the root secrets in
+#  the GitHub environment `production`. Nothing else.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  FLY_ORG: ${{ vars.FLY_ORG || 'personal' }}
+  REGISTRY: ghcr.io
+  OWNER: konradcinkusz
+  API_APP: work-in-poland-api-prod
+  WEB_APP: work-in-poland-web-prod
+  AUTH_APP: work-in-poland-authservice-prod
+  PG_APP: work-in-poland-postgres
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: .NET build and test
+        run: |
+          dotnet restore WorkInPoland.sln
+          dotnet build WorkInPoland.sln --no-restore --configuration Release
+          scripts/check-kernel-size.sh
+          dotnet test WorkInPoland.sln --no-build --configuration Release
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Web unit tests and build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm lint && pnpm typecheck && pnpm test && pnpm build
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    needs: test
+    environment: production
+    outputs:
+      postgres: ${{ steps.flags.outputs.postgres }}
+      authservice: ${{ steps.flags.outputs.authservice }}
+      api: ${{ steps.flags.outputs.api }}
+      web: ${{ steps.flags.outputs.web }}
+      build_matrix: ${{ steps.flags.outputs.build_matrix }}
+      has_builds: ${{ steps.flags.outputs.has_builds }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0        # the previous tag has to be reachable
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Compute flags
+        id: flags
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          echo "tag=${TAG} previous=${PREV:-<none>}"
+
+          if [ -n "${PREV}" ]; then
+            git diff --name-only "${PREV}" "${TAG}" > /tmp/changed.txt
+          else
+            : > /tmp/changed.txt
+          fi
+          cat /tmp/changed.txt
+
+          touched() { grep -Eq "$1" /tmp/changed.txt; }
+          app_missing() {
+            ! flyctl apps list --json | jq -e --arg a "$1" '.[] | select((.Name // .name) == $a)' >/dev/null
+          }
+
+          # The kernel, the contracts and the solution-level props are compiled into the API image.
+          API=false; WEB=false; AUTH=false; PG=false
+          if [ -z "${PREV}" ] || touched '^(src/WorkInPoland\.(Api|ServiceDefaults|Contracts)/|Directory\.(Build|Packages)\.props|global\.json|flyio/api\.fly\.toml)' || app_missing "${API_APP}"; then API=true; fi
+          if [ -z "${PREV}" ] || touched '^(web/|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|flyio/web\.fly\.toml)' || app_missing "${WEB_APP}"; then WEB=true; fi
+          if [ -z "${PREV}" ] || touched '^flyio/authservice\.fly\.toml' || app_missing "${AUTH_APP}"; then AUTH=true; fi
+          if [ -z "${PREV}" ] || touched '^flyio/postgres\.fly\.toml' || app_missing "${PG_APP}"; then PG=true; fi
+
+          MATRIX='[]'
+          [ "${API}" = true ] && MATRIX="$(jq -c '. + ["api"]' <<<"${MATRIX}")"
+          [ "${WEB}" = true ] && MATRIX="$(jq -c '. + ["web"]' <<<"${MATRIX}")"
+
+          {
+            echo "api=${API}"; echo "web=${WEB}"; echo "authservice=${AUTH}"; echo "postgres=${PG}"
+            echo "build_matrix={\"service\":${MATRIX}}"
+            echo "has_builds=$([ "${MATRIX}" = '[]' ] && echo false || echo true)"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_builds == 'true'
+    strategy:
+      fail-fast: false          # one broken image must not cancel the other mid-push
+      matrix: ${{ fromJson(needs.detect-changes.outputs.build_matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve Dockerfile
+        id: df
+        run: |
+          case "${{ matrix.service }}" in
+            api) echo "file=src/WorkInPoland.Api/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            web) echo "file=web/app/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+          esac
+      # Build once, deploy many: this image is the only build of this source; every deploy below
+      # references it with `flyctl deploy --image`.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ steps.df.outputs.file }}
+          push: true
+          tags: ghcr.io/${{ env.OWNER }}/work-in-poland-${{ matrix.service }}:${{ github.ref_name }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy-postgres:
+    name: Deploy postgres
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.postgres == 'true'
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Require the critical secrets
+        run: |
+          missing=0
+          for v in PG_ADMIN_PASSWORD APIDB_PASSWORD AUTHDB_PASSWORD FLY_API_TOKEN; do
+            if [ -z "${!v:-}" ]; then echo "::error::GitHub environment secret ${v} is not set (flyio/SECRETS.md)"; missing=1; fi
+          done
+          exit "${missing}"
+        env:
+          PG_ADMIN_PASSWORD: ${{ secrets.PG_ADMIN_PASSWORD }}
+          APIDB_PASSWORD: ${{ secrets.APIDB_PASSWORD }}
+          AUTHDB_PASSWORD: ${{ secrets.AUTHDB_PASSWORD }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Ensure the Fly app and its volume exist
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if flyctl apps list --json | jq -e --arg a "${PG_APP}" '.[] | select((.Name // .name) == $a)' >/dev/null; then
+            echo "App ${PG_APP} already exists."
+          else
+            flyctl apps create "${PG_APP}" --org "${FLY_ORG}" --yes
+          fi
+          if flyctl volumes list -a "${PG_APP}" --json | jq -e '.[] | select((.Name // .name) == "work_in_poland_pgdata")' >/dev/null; then
+            echo "Volume already exists."
+          else
+            flyctl volumes create work_in_poland_pgdata -a "${PG_APP}" --region waw --size 5 --yes
+          fi
+      - name: Stage secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PG_ADMIN_PASSWORD: ${{ secrets.PG_ADMIN_PASSWORD }}
+          APIDB_PASSWORD: ${{ secrets.APIDB_PASSWORD }}
+          AUTHDB_PASSWORD: ${{ secrets.AUTHDB_PASSWORD }}
+        run: |
+          flyctl secrets set -a "${PG_APP}" --stage \
+            "POSTGRES_PASSWORD=${PG_ADMIN_PASSWORD}" \
+            "APIDB_PASSWORD=${APIDB_PASSWORD}" \
+            "AUTHDB_PASSWORD=${AUTHDB_PASSWORD}"
+      # --ha=false: a second machine would get a second EMPTY volume, not a replica.
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --config flyio/postgres.fly.toml --app "${PG_APP}" --ha=false --yes
+
+  deploy-authservice:
+    name: Deploy authservice
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-postgres]
+    if: >-
+      ${{ always() && !cancelled()
+          && needs.detect-changes.outputs.authservice == 'true'
+          && (needs.deploy-postgres.result == 'success' || needs.deploy-postgres.result == 'skipped') }}
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # A signing key is not an optional dependency: a service that boots without one infers the
+      # symmetric algorithm, publishes an EMPTY JWKS and looks healthy while every consumer rejects
+      # every token (IDENTITY-AND-ACCOUNTS §10). Fail here, not in production.
+      - name: Require the critical secrets
+        run: |
+          missing=0
+          for v in JWT_PRIVATE_KEY_PEM AUTHDB_PASSWORD AUTH_ENCRYPTION_KEY MCP_CLIENT_SECRET FLY_API_TOKEN; do
+            if [ -z "${!v:-}" ]; then echo "::error::GitHub environment secret ${v} is not set (flyio/SECRETS.md)"; missing=1; fi
+          done
+          exit "${missing}"
+        env:
+          JWT_PRIVATE_KEY_PEM: ${{ secrets.JWT_PRIVATE_KEY_PEM }}
+          AUTHDB_PASSWORD: ${{ secrets.AUTHDB_PASSWORD }}
+          AUTH_ENCRYPTION_KEY: ${{ secrets.AUTH_ENCRYPTION_KEY }}
+          MCP_CLIENT_SECRET: ${{ secrets.MCP_CLIENT_SECRET }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Ensure the Fly app exists
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if flyctl apps list --json | jq -e --arg a "${AUTH_APP}" '.[] | select((.Name // .name) == $a)' >/dev/null; then
+            echo "App ${AUTH_APP} already exists."
+          else
+            flyctl apps create "${AUTH_APP}" --org "${FLY_ORG}" --yes
+          fi
+      - name: Stage secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          JWT_PRIVATE_KEY_PEM: ${{ secrets.JWT_PRIVATE_KEY_PEM }}
+          AUTHDB_PASSWORD: ${{ secrets.AUTHDB_PASSWORD }}
+          AUTH_ENCRYPTION_KEY: ${{ secrets.AUTH_ENCRYPTION_KEY }}
+          MCP_CLIENT_SECRET: ${{ secrets.MCP_CLIENT_SECRET }}
+          INITIAL_ADMIN_EMAIL: ${{ secrets.INITIAL_ADMIN_EMAIL }}
+          INITIAL_ADMIN_PASSWORD: ${{ secrets.INITIAL_ADMIN_PASSWORD }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+        run: |
+          set -euo pipefail
+          # Connection string assembled from a password plus a known host; never stored per service.
+          ARGS=(
+            "ConnectionStrings__DefaultConnection=Host=${PG_APP}.internal;Port=5432;Database=authdb;Username=auth;Password=${AUTHDB_PASSWORD}"
+            "Jwt__PrivateKeyPem=${JWT_PRIVATE_KEY_PEM}"
+            "AuthorizationServer__EncryptionKey=${AUTH_ENCRYPTION_KEY}"
+            "AuthorizationServer__Clients__0__ClientSecret=${MCP_CLIENT_SECRET}"
+          )
+          # Optional (P8): present -> the feature is on, absent -> it degrades.
+          if [ -n "${INITIAL_ADMIN_EMAIL}" ] && [ -n "${INITIAL_ADMIN_PASSWORD}" ]; then
+            ARGS+=("InitialAdmin__Email=${INITIAL_ADMIN_EMAIL}" "InitialAdmin__Password=${INITIAL_ADMIN_PASSWORD}")
+          fi
+          if [ -n "${SENDGRID_API_KEY}" ] && [ -n "${SENDGRID_FROM_EMAIL}" ]; then
+            ARGS+=("SendGrid__ApiKey=${SENDGRID_API_KEY}" "SendGrid__FromEmail=${SENDGRID_FROM_EMAIL}" "SendGrid__FromName=Work in Poland")
+          fi
+          flyctl secrets set -a "${AUTH_APP}" --stage "${ARGS[@]}"
+      # The image reference lives in flyio/authservice.fly.toml ([build] image), pinned.
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --config flyio/authservice.fly.toml --app "${AUTH_APP}" --yes --wait-timeout 300
+      # The one thing the health check cannot see: a non-empty key set. `--wait-timeout` covers "did
+      # it start", not "is it correct".
+      - name: Assert the JWKS publishes a key
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 20); do
+            N="$(curl -fsS "https://${AUTH_APP}.fly.dev/.well-known/jwks.json" | jq '.keys | length' || echo 0)"
+            [ "${N}" -ge 1 ] && { echo "JWKS publishes ${N} key(s)."; exit 0; }
+            sleep 3
+          done
+          echo "::error::The JWKS is empty. The signing key never reached the service; every consumer would reject every token."
+          exit 1
+
+  deploy-api:
+    name: Deploy api
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build, deploy-authservice]
+    if: >-
+      ${{ always() && !cancelled()
+          && needs.detect-changes.outputs.api == 'true'
+          && needs.build.result == 'success'
+          && (needs.deploy-authservice.result == 'success' || needs.deploy-authservice.result == 'skipped') }}
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Require the critical secrets
+        run: |
+          missing=0
+          for v in APIDB_PASSWORD FLY_API_TOKEN; do
+            if [ -z "${!v:-}" ]; then echo "::error::GitHub environment secret ${v} is not set (flyio/SECRETS.md)"; missing=1; fi
+          done
+          exit "${missing}"
+        env:
+          APIDB_PASSWORD: ${{ secrets.APIDB_PASSWORD }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Image is publicly pullable
+        run: |
+          docker logout ghcr.io || true
+          docker manifest inspect "ghcr.io/${OWNER}/work-in-poland-api:${GITHUB_REF_NAME}" >/dev/null || {
+            echo "::error::Fly cannot pull a private GHCR package. Make ghcr.io/${OWNER}/work-in-poland-api public (flyio/SECRETS.md, ADR 0009)."; exit 1; }
+      - name: Ensure the Fly app exists
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if flyctl apps list --json | jq -e --arg a "${API_APP}" '.[] | select((.Name // .name) == $a)' >/dev/null; then
+            echo "App ${API_APP} already exists."
+          else
+            flyctl apps create "${API_APP}" --org "${FLY_ORG}" --yes
+          fi
+      - name: Stage secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          APIDB_PASSWORD: ${{ secrets.APIDB_PASSWORD }}
+        run: |
+          flyctl secrets set -a "${API_APP}" --stage \
+            "ConnectionStrings__apidb=Host=${PG_APP}.internal;Port=5432;Database=apidb;Username=api;Password=${APIDB_PASSWORD}"
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy --config flyio/api.fly.toml --app "${API_APP}" \
+            --image "ghcr.io/${OWNER}/work-in-poland-api:${GITHUB_REF_NAME}" --yes --wait-timeout 300
+
+  deploy-web:
+    name: Deploy web
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build, deploy-api]
+    if: >-
+      ${{ always() && !cancelled()
+          && needs.detect-changes.outputs.web == 'true'
+          && needs.build.result == 'success'
+          && (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') }}
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Image is publicly pullable
+        run: |
+          docker logout ghcr.io || true
+          docker manifest inspect "ghcr.io/${OWNER}/work-in-poland-web:${GITHUB_REF_NAME}" >/dev/null || {
+            echo "::error::Fly cannot pull a private GHCR package. Make ghcr.io/${OWNER}/work-in-poland-web public (flyio/SECRETS.md, ADR 0009)."; exit 1; }
+      - name: Ensure the Fly app exists
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if flyctl apps list --json | jq -e --arg a "${WEB_APP}" '.[] | select((.Name // .name) == $a)' >/dev/null; then
+            echo "App ${WEB_APP} already exists."
+          else
+            flyctl apps create "${WEB_APP}" --org "${FLY_ORG}" --yes
+          fi
+      # The web app holds no secret: its configuration is public addresses in flyio/web.fly.toml.
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy --config flyio/web.fly.toml --app "${WEB_APP}" \
+            --image "ghcr.io/${OWNER}/work-in-poland-web:${GITHUB_REF_NAME}" --yes --wait-timeout 300
+
+  smoke:
+    name: Public-URL smoke
+    runs-on: ubuntu-latest
+    needs: [deploy-postgres, deploy-authservice, deploy-api, deploy-web]
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Smoke the public URLs
+        run: scripts/smoke-public.sh "https://${WEB_APP}.fly.dev" "https://${API_APP}.fly.dev" "https://${AUTH_APP}.fly.dev"

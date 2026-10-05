@@ -1,0 +1,41 @@
+# Declared and OFF: every ecosystem the repository has, each at open-pull-requests-limit: 0.
+# This is a recorded deviation from REPO-BASELINE.md §1 — see docs/adr/0006-dependency-automation-declared-off.md
+# for the reasoning, the state of the repository's security-update setting, and the trigger
+# for turning it on (one line per ecosystem: raise the limit).
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: docker
+    directory: "/src/WorkInPoland.Api"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: docker
+    directory: "/web/app"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 0

@@ -1,0 +1,17 @@
+# Exclusion-based (REPO-BASELINE.md §1): a backend image build must not ship web/, tests/,
+# docs/ and the infra tree as build context. Everything is excluded, then the .NET inputs
+# are let back in. The web image builds from web/ as its own context and has its own ignore.
+*
+!global.json
+!Directory.Build.props
+!Directory.Packages.props
+!WorkInPoland.sln
+!src/WorkInPoland.ServiceDefaults/**
+!src/WorkInPoland.Contracts/**
+!src/WorkInPoland.Api/**
+!src/WorkInPoland.AppHost/WorkInPoland.AppHost.csproj
+!tests/WorkInPoland.Api.Tests/WorkInPoland.Api.Tests.csproj
+**/bin/
+**/obj/
+**/.vs/
+**/*.user

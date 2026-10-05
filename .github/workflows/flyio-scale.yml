@@ -1,0 +1,53 @@
+name: Fly.io scale
+
+# Manual: normalise machine counts. The database is EXCLUDED on purpose — `flyctl scale count 2` on
+# an app with a volume creates a second EMPTY database, not a replica (FLY-IO-DEPLOYMENT §8, §12).
+# Note that scaling a stateless app to zero MACHINES is not `min_machines_running = 0`: the latter
+# lets the proxy start a stopped machine, the former leaves nothing to start.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "normal = request path pinned at 1 (as flyio/*.fly.toml), start = start every machine, wind-down = stop the request path (it restarts on the next request where min_machines_running allows)"
+        type: choice
+        options: [normal, start, wind-down]
+        default: normal
+
+permissions:
+  contents: read
+
+env:
+  API_APP: work-in-poland-api-prod
+  WEB_APP: work-in-poland-web-prod
+  AUTH_APP: work-in-poland-authservice-prod
+
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Apply
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          case "${MODE}" in
+            normal)
+              flyctl scale count 1 -a "${AUTH_APP}" --yes
+              flyctl scale count 1 -a "${API_APP}" --yes
+              flyctl scale count 1 -a "${WEB_APP}" --yes
+              ;;
+            start)
+              for a in "${AUTH_APP}" "${API_APP}" "${WEB_APP}"; do
+                flyctl machine list -a "$a" --json | jq -r '.[].id' | xargs -r -n1 flyctl machine start -a "$a" || true
+              done
+              ;;
+            wind-down)
+              for a in "${WEB_APP}" "${API_APP}"; do
+                flyctl machine list -a "$a" --json | jq -r '.[].id' | xargs -r -n1 flyctl machine stop -a "$a" || true
+              done
+              ;;
+          esac

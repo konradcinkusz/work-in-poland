@@ -55,3 +55,41 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Node / web workspace
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+playwright-report/
+test-results/
+.env.local
+
+# Generated per-run material for the e2e / dev stack (a throwaway JWT signing key)
+tests/e2e/.generated/
+tests/e2e/playwright-report/
+tests/e2e/test-results/
+
+# Node
+node_modules/
+.next/
+*.tsbuildinfo
+
+# Local secrets (secrets.env.example is the committed contract)
+.env
+.env.*
+!.env.example
+!secrets.env.example
+
+# LaTeX build output and rendered diagrams: nothing generated is committed (INIT-GENERIC-TEMPLATE §9)
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.pdf
+docs/diagrams/rendered/
+docs/papers/build/
