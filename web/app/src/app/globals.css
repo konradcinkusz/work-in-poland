@@ -11,11 +11,50 @@
 
 @layer base {
   html { color-scheme: light; }
-  body { @apply bg-slate-50 text-slate-900 antialiased; }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+    }
+    :root:not([data-theme="light"]) body {
+      @apply bg-slate-950 text-slate-100;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+  :root[data-theme="dark"] body {
+    @apply bg-slate-950 text-slate-100;
+  }
+
   :focus-visible { @apply outline-2 outline-offset-2 outline-blue-700; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) :focus-visible {
+      @apply outline-blue-400;
+    }
+  }
+  :root[data-theme="dark"] :focus-visible {
+    @apply outline-blue-400;
+  }
+
   h1 { @apply text-3xl font-bold tracking-tight sm:text-4xl; }
   h2 { @apply text-xl font-semibold; }
   a { @apply text-brand-700; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) a {
+      @apply text-brand-600;
+    }
+  }
+  :root[data-theme="dark"] a {
+    @apply text-brand-600;
+  }
 }
 
 @layer components {
@@ -23,27 +62,170 @@
   .btn-primary { @apply bg-brand-700 text-white hover:bg-brand-800; }
   .btn-secondary { @apply border border-slate-300 bg-white text-slate-900 hover:bg-slate-100; }
   .btn-danger { @apply border border-red-300 bg-white text-red-800 hover:bg-red-50; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .btn-secondary {
+      @apply border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700;
+    }
+    :root:not([data-theme="light"]) .btn-danger {
+      @apply border-red-800 bg-slate-800 text-red-300 hover:bg-red-900;
+    }
+  }
+  :root[data-theme="dark"] .btn-secondary {
+    @apply border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700;
+  }
+  :root[data-theme="dark"] .btn-danger {
+    @apply border-red-800 bg-slate-800 text-red-300 hover:bg-red-900;
+  }
+
   .btn-sm { @apply min-h-9 px-3 py-1 text-sm; }
   .input { @apply block min-h-11 w-full rounded-md border border-slate-400 bg-white px-3 py-2 text-base text-slate-900 placeholder:text-slate-500; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .input {
+      @apply border-slate-600 bg-slate-800 text-slate-100 placeholder:text-slate-400;
+    }
+  }
+  :root[data-theme="dark"] .input {
+    @apply border-slate-600 bg-slate-800 text-slate-100 placeholder:text-slate-400;
+  }
+
   .label { @apply mb-1 block text-sm font-medium text-slate-800; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .label {
+      @apply text-slate-200;
+    }
+  }
+  :root[data-theme="dark"] .label {
+    @apply text-slate-200;
+  }
+
   .hint { @apply mt-1 text-sm text-slate-600; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .hint {
+      @apply text-slate-400;
+    }
+  }
+  :root[data-theme="dark"] .hint {
+    @apply text-slate-400;
+  }
+
   .field-error { @apply mt-1 text-sm font-medium text-red-800; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .field-error {
+      @apply text-red-400;
+    }
+  }
+  :root[data-theme="dark"] .field-error {
+    @apply text-red-400;
+  }
+
   .card { @apply rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .card {
+      @apply border-slate-700 bg-slate-900;
+    }
+  }
+  :root[data-theme="dark"] .card {
+    @apply border-slate-700 bg-slate-900;
+  }
+
   .badge { @apply inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .badge {
+      @apply bg-slate-800 text-slate-200;
+    }
+  }
+  :root[data-theme="dark"] .badge {
+    @apply bg-slate-800 text-slate-200;
+  }
+
   .alert { @apply rounded-md border px-4 py-3 text-sm; }
   .alert-error { @apply border-red-300 bg-red-50 text-red-900; }
   .alert-info { @apply border-blue-300 bg-blue-50 text-blue-900; }
   .alert-success { @apply border-green-300 bg-green-50 text-green-900; }
   .alert-warn { @apply border-amber-400 bg-amber-50 text-amber-950; }
 
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .alert-error {
+      @apply border-red-900 bg-red-950 text-red-200;
+    }
+    :root:not([data-theme="light"]) .alert-info {
+      @apply border-blue-900 bg-blue-950 text-blue-200;
+    }
+    :root:not([data-theme="light"]) .alert-success {
+      @apply border-green-900 bg-green-950 text-green-200;
+    }
+    :root:not([data-theme="light"]) .alert-warn {
+      @apply border-amber-900 bg-amber-950 text-amber-200;
+    }
+  }
+  :root[data-theme="dark"] .alert-error {
+    @apply border-red-900 bg-red-950 text-red-200;
+  }
+  :root[data-theme="dark"] .alert-info {
+    @apply border-blue-900 bg-blue-950 text-blue-200;
+  }
+  :root[data-theme="dark"] .alert-success {
+    @apply border-green-900 bg-green-950 text-green-200;
+  }
+  :root[data-theme="dark"] .alert-warn {
+    @apply border-amber-900 bg-amber-950 text-amber-200;
+  }
+
   /* Rendered markdown (employer text; HTML is stripped at render time). */
   .md { @apply text-base leading-relaxed text-slate-900; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .md {
+      @apply text-slate-100;
+    }
+  }
+  :root[data-theme="dark"] .md {
+    @apply text-slate-100;
+  }
+
   .md > * + * { @apply mt-3; }
   .md h1, .md h2, .md h3, .md h4 { @apply mt-6 text-lg font-semibold; }
   .md ul { @apply list-disc pl-6; }
   .md ol { @apply list-decimal pl-6; }
   .md code { @apply rounded bg-slate-100 px-1 py-0.5 text-sm; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .md code {
+      @apply bg-slate-800;
+    }
+  }
+  :root[data-theme="dark"] .md code {
+    @apply bg-slate-800;
+  }
+
   .md pre { @apply overflow-x-auto rounded bg-slate-100 p-3 text-sm; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .md pre {
+      @apply bg-slate-800;
+    }
+  }
+  :root[data-theme="dark"] .md pre {
+    @apply bg-slate-800;
+  }
+
   .md blockquote { @apply border-l-4 border-slate-300 pl-4 text-slate-700; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .md blockquote {
+      @apply border-slate-600 text-slate-300;
+    }
+  }
+  :root[data-theme="dark"] .md blockquote {
+    @apply border-slate-600 text-slate-300;
+  }
+
   .md a { @apply underline; }
 }
