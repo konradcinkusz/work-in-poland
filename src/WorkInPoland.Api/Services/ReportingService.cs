@@ -32,7 +32,8 @@ public sealed class ReportingService(ApiDbContext db, TimeProvider clock, ILogge
 
         db.JobReports.Add(report);
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Job {JobId} ({JobSlug}) reported: reason={Reason}", job.Id, jobSlug, report.Reason);
+        // Only server-generated ids are logged: the slug and the reason are caller input (log forging).
+        logger.LogInformation("Job {JobId} reported (report {ReportId})", job.Id, report.Id);
     }
 
     /// <summary>List all reports, optionally filtered by status.</summary>
@@ -93,6 +94,6 @@ public sealed class ReportingService(ApiDbContext db, TimeProvider clock, ILogge
         }
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Admin {Actor} resolved report {ReportId}: {Outcome}", actor, reportId, request.Outcome);
+        logger.LogInformation("Admin {Actor} resolved report {ReportId}", actor, reportId);
     }
 }
