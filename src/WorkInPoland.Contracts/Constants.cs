@@ -71,6 +71,10 @@ public static class OperationNames
     public const string AdminListCompanies = "AdminListCompanies";
     public const string AdminVerifyCompany = "AdminVerifyCompany";
     public const string AdminUnverifyCompany = "AdminUnverifyCompany";
+
+    public const string ReportJob = "ReportJob";
+    public const string AdminListReports = "AdminListReports";
+    public const string AdminResolveReport = "AdminResolveReport";
 }
 
 /// <summary>Allowed values of the vocabularies in API.md section 2 (all lowercase except currency).</summary>
@@ -88,6 +92,8 @@ public static class Vocabulary
     public static readonly string[] Currencies = ["PLN", "EUR", "USD", "GBP", "CHF"];
     public static readonly string[] JobStatuses = ["draft", "published", "closed", "expired"];
     public static readonly string[] ApplicationStatuses = ["saved", "applied", "interviewing", "offer", "rejected", "archived"];
+    public static readonly string[] ReportReasons = ["illegal", "discrimination", "scam", "misleading", "other"];
+    public static readonly string[] ReportStatuses = ["open", "actioned", "dismissed"];
 }
 
 public static class JobStatuses

@@ -213,3 +213,29 @@ public sealed record AdminCompanyQuery(string? Q = null, bool? Verified = null, 
 public sealed record UnpublishRequest([property: Required, StringLength(500, MinimumLength = 1)] string Reason);
 
 public sealed record PromoteRequest([property: Range(1, 90)] int Days);
+
+// ---- Job Reporting ----
+
+/// <summary>Request to report a job listing (anonymous).</summary>
+public sealed record JobReportRequest(
+    [property: Required, RegularExpression(@"^(illegal|discrimination|scam|misleading|other)$")] string Reason,
+    [property: StringLength(1000)] string? Details = null,
+    [property: EmailAddress] string? ContactEmail = null);
+
+/// <summary>Item in the admin list of job reports.</summary>
+public sealed record JobReportListItemDto(
+    Guid Id,
+    Guid JobId,
+    string JobTitle,
+    string Reason,
+    string? Details,
+    string Status,
+    DateTime CreatedAt,
+    DateTime? ResolvedAt);
+
+public sealed record AdminReportQuery(string? Status = null, int? Page = null, int? Limit = null);
+
+/// <summary>Request from admin to resolve a report (mark as actioned or dismissed).</summary>
+public sealed record AdminResolveReportRequest(
+    [property: Required, RegularExpression(@"^(actioned|dismissed)$")] string Outcome,
+    [property: StringLength(1000)] string? Note = null);

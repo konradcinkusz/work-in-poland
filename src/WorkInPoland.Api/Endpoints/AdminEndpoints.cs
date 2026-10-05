@@ -24,6 +24,11 @@ public static class AdminEndpoints
             .WithName(OperationNames.AdminVerifyCompany);
         admin.MapPost("/companies/{id:guid}/unverify", (Guid id, ClaimsPrincipal user, AdminService svc, CancellationToken ct) => svc.SetVerifiedAsync(user.UserId(), id, false, ct))
             .WithName(OperationNames.AdminUnverifyCompany);
+        admin.MapGet("/reports", ([AsParameters] AdminReportQuery query, ReportingService reporting, CancellationToken ct) => reporting.ListReportsAsync(query, ct))
+            .WithName(OperationNames.AdminListReports);
+        admin.MapPost("/reports/{id:guid}/resolve", (Guid id, AdminResolveReportRequest request, ClaimsPrincipal user, ReportingService reporting, CancellationToken ct) => reporting.ResolveReportAsync(id, user.UserId(), request, ct))
+            .WithValidation()
+            .WithName(OperationNames.AdminResolveReport);
         return admin;
     }
 }
