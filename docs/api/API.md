@@ -57,6 +57,8 @@ provider ([ADR 0003](../adr/0003-authservice-is-the-identity-provider.md)). This
 | `currency` | `PLN` `EUR` `USD` `GBP` `CHF` |
 | `jobStatus` | `draft` `published` `closed` `expired` |
 | `applicationStatus` | `saved` `applied` `interviewing` `offer` `rejected` `archived` |
+| `reportReason` | `illegal` `discrimination` `scam` `misleading` `other` |
+| `reportStatus` | `open` `actioned` `dismissed` |
 
 Contract type and salary basis are **two separate dimensions of the data**, never one
 combined field: a UoP offer and a B2B offer for the same job are two `SalaryOffer`s
@@ -91,6 +93,7 @@ combined field: a UoP offer and a B2B offer for the same job are two `SalaryOffe
 | `GET /api/v1/jobs` | Search. Query below. Returns a page of `JobSummary`. Only `published` and not-expired jobs |
 | `GET /api/v1/jobs/{slug}` | `JobDetail`, `404` for anything not published. Increments the view counter |
 | `POST /api/v1/jobs/{slug}/apply-click` | Counts an apply click, returns `{ "applyUrl": "https://…" }`. Best-effort statistics, anonymous |
+| `POST /api/v1/jobs/{slug}/report` | Report a listing (anonymous). Body: `{ "reason": "illegal"\|"discrimination"\|"scam"\|"misleading"\|"other", "details"?: string ≤ 1000, "contactEmail"?: email }`. Returns `202 Accepted`. Rate limit: stricter policy, e.g. 5/h/client |
 | `GET /api/v1/companies` | `?q=&verifiedOnly=&page=&limit=` → page of `CompanyRef` + `openJobs` count |
 | `GET /api/v1/companies/{slug}` | `{ …CompanyRef, "website", "description", "city", "openJobs": [JobSummary] }` |
 | `GET /api/v1/salaries/benchmarks` | Query below |
@@ -186,6 +189,8 @@ with the acting `sub`.
 | `POST /api/v1/admin/jobs/{id}/promote` | `{ "days": 1–90 }` → `EmployerJob`; sets `isPromoted` until `now + days`. Payments are out of scope: promotion is granted by an operator ([ADR 0005](../adr/0005-no-payments-yet.md)) |
 | `GET /api/v1/admin/companies` | `?q=&verified=&page=&limit=` → page of `CompanyDetail` |
 | `POST /api/v1/admin/companies/{id}/verify` / `unverify` | → `CompanyDetail` |
+| `GET /api/v1/admin/reports` | `?status=open\|actioned\|dismissed&page=&limit=` → page of `{ id, jobId, jobTitle, reason, details, status, createdAt, resolvedAt }` |
+| `POST /api/v1/admin/reports/{id}/resolve` | `{ "outcome": "actioned"\|"dismissed", "note"?: string ≤ 1000 }` → `204`. If `actioned`, the job is auto-unpublished. All actions logged with `sub` |
 
 ## 7. Validation rules
 

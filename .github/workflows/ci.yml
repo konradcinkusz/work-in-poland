@@ -197,3 +197,6 @@ jobs:
           node-version: 22
       - name: Every relative link in the docs resolves
         run: node scripts/check-links.mjs
+      # Consent versions live in four places that must agree (docs/LEGAL-VERSIONING.md).
+      - name: Consent versions agree everywhere
+        run: node scripts/check-consent-versions.mjs

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using WorkInPoland.Api.Services;
 using WorkInPoland.Contracts;
+using WorkInPoland.ServiceDefaults;
 
 namespace WorkInPoland.Api.Endpoints;
 
@@ -14,6 +15,10 @@ public static class PublicEndpoints
             .WithName(OperationNames.GetJob);
         api.MapPost("/jobs/{slug}/apply-click", (string slug, CatalogService catalog, CancellationToken ct) => catalog.RegisterApplyClickAsync(slug, ct))
             .WithName(OperationNames.ApplyClick);
+        api.MapPost("/jobs/{slug}/report", (string slug, JobReportRequest request, ReportingService reporting, CancellationToken ct) => reporting.CreateReportAsync(slug, request, ct))
+            .WithValidation()
+            .Produces(StatusCodes.Status202Accepted)
+            .WithName(OperationNames.ReportJob);
         api.MapGet("/companies", ([AsParameters] CompanyQuery query, CatalogService catalog, CancellationToken ct) => catalog.SearchCompaniesAsync(query, ct))
             .WithName(OperationNames.ListCompanies);
         api.MapGet("/companies/{slug}", (string slug, CatalogService catalog, CancellationToken ct) => catalog.GetCompanyAsync(slug, ct))

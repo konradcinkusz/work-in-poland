@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EmployerService>();
         services.AddScoped<AdminService>();
         services.AddScoped<AccountDataService>();
+        services.AddScoped<ReportingService>();
         services.AddScoped<ListingExpirySweep>();
         services.AddHostedService<ListingExpiryService>();
         return services;

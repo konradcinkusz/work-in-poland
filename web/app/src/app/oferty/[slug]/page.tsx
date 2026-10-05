@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { locationLabel, SalaryList, VerifiedBadge } from '@/components/job-card';
 import { Markdown } from '@/components/markdown';
+import { ReportJobButton } from '@/components/report-job-button';
 import { SaveJobButton } from '@/components/save-job-button';
 import { getJob } from '@/lib/api';
 import { publicSiteUrl } from '@/lib/env';
@@ -75,6 +76,9 @@ export default async function JobPage({ params }: Props) {
           <p className="text-sm text-slate-600">Otworzymy stronę pracodawcy. Nie przechowujemy CV i nic nie wysyłamy w Twoim imieniu.</p>
           <SaveJobButton jobId={job.id} slug={job.slug} />
         </section>
+        <div className="text-center">
+          <ReportJobButton slug={job.slug} />
+        </div>
       </aside>
     </article>
   );

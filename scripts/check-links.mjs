@@ -51,6 +51,8 @@ for (const file of walk(root)) {
   const text = readFileSync(file, 'utf8').replace(/```[\s\S]*?```/g, '');
   for (const m of text.matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
     const target = m[1];
+    // Root-absolute links ("/cookies") are routes of the web app (legal pages), not files.
+    if (target.startsWith('/')) continue;
     if (/^(https?:|mailto:|tel:|#?$)/.test(target)) {
       if (target.startsWith('#') && target.length > 1 && !anchorsOf(file).has(target.slice(1))) {
         console.error(`${relative(root, file)}: missing anchor ${target}`);
