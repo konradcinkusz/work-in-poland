@@ -28,6 +28,8 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      # Private repositories: the analyze step reads the workflow run ("Resource not accessible by integration" without it).
+      actions: read
     strategy:
       fail-fast: false
       matrix:
