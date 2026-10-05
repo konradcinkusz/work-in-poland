@@ -32,7 +32,7 @@ export interface AuthResponse {
 }
 
 export interface AuthRequestOptions {
-  method?: 'GET' | 'POST' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   token?: string;
   timeoutMs?: number;

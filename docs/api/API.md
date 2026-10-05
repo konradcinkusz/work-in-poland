@@ -308,6 +308,13 @@ authservice (`AUTH_BASE_URL`) with these, all documented in authservice's own `R
 | Password reset | `POST /api/v1/auth/forgot-password` `{ email }`, `POST /api/v1/auth/reset-password` `{ email, token, newPassword }` |
 | Logout | `POST /api/v1/auth/logout` (bearer, revokes the refresh family) |
 | Social login | `GET /api/v1/external-auth/providers` → configured providers; browser redirect to `GET /api/v1/external-auth/login?provider=…&returnUrl=<web>/oauth/callback`; the callback lands on the web app with `?code=`, redeemed with `POST /api/v1/external-auth/exchange` `{ code }` |
+| Account settings — 2FA enable | `POST /api/v1/auth/account/2fa/enable` (bearer) → `{ sharedKey, authenticatorUri }` for QR display |
+| Account settings — 2FA verify | `POST /api/v1/auth/account/2fa/verify-setup` (bearer) `{ verificationCode }` → `{ recoveryCodes: [string] }` |
+| Account settings — recovery codes | `POST /api/v1/auth/account/2fa/recovery-codes` (bearer) → `{ recoveryCodes: [string] }` |
+| Account settings — 2FA disable | `POST /api/v1/auth/account/2fa/disable` (bearer) `{ password, verificationCode }` → `204` |
+| Account settings — password change | `POST /api/v1/auth/account/change-password` (bearer) `{ currentPassword, newPassword }` → `{ accessToken?, refreshToken? }` (only if tokens reissued) |
+| Account settings — profile | `PUT /api/v1/auth/account/profile` (bearer) `{ userName }` → user record |
+| Account info (capabilities) | `GET /api/v1/auth/me` (bearer) → includes `hasPassword`, `twoFactorEnabled`, `userName` (in addition to existing fields) |
 
 Authservice's emails link to `FrontendBaseUrl`: `<it>/reset-password?token=…&email=…` and
 `<it>/verify-email?token=…&email=…`. The web app serves those routes.
