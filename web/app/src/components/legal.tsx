@@ -13,7 +13,7 @@ export function LegalPage({ title, version, markdown }: LegalPageProps) {
   const html = useMemo(() => renderMarkdown(markdown), [markdown]);
 
   return (
-    <article className="mx-auto max-w-3xl space-y-4">
+    <article aria-label={title} className="mx-auto max-w-3xl space-y-4">
       <div role="note" className="alert alert-warn font-semibold">
         Wersja robocza — wymaga weryfikacji przez prawnika przed uruchomieniem produkcyjnym
       </div>

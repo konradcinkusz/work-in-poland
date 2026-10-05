@@ -28,6 +28,7 @@ public sealed class ServiceFixture : IDisposable
         services.AddScoped<EmployerService>();
         services.AddScoped<AdminService>();
         services.AddScoped<AccountDataService>();
+        services.AddScoped<ReportingService>();
         services.AddScoped<ListingExpirySweep>();
         services.AddScoped<DemoSeeder>();
         Provider = services.BuildServiceProvider();

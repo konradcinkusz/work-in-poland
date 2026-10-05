@@ -8,6 +8,6 @@ export const metadata: Metadata = { title: 'Regulamin', description: 'Regulamin 
 export default function TermsPage() {
   const markdown = loadLegalContent('terms');
   return (
-    <LegalPage title=”Regulamin” version={legalVersions().terms} markdown={markdown} />
+    <LegalPage title="Regulamin" version={legalVersions().terms} markdown={markdown} />
   );
 }

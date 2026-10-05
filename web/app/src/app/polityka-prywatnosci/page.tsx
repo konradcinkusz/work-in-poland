@@ -8,6 +8,6 @@ export const metadata: Metadata = { title: 'Polityka prywatności', description:
 export default function PrivacyPage() {
   const markdown = loadLegalContent('privacy');
   return (
-    <LegalPage title=”Polityka prywatności” version={legalVersions().privacy} markdown={markdown} />
+    <LegalPage title="Polityka prywatności" version={legalVersions().privacy} markdown={markdown} />
   );
 }

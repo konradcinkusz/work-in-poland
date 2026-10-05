@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using WorkInPoland.Api.Services;
 using WorkInPoland.Contracts;
+using WorkInPoland.ServiceDefaults;
 
 namespace WorkInPoland.Api.Endpoints;
 
