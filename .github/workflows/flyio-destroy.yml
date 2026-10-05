@@ -1,0 +1,60 @@
+name: Fly.io destroy
+
+# Manual teardown behind a typed confirmation. A workflow that destroys data on a single click
+# eventually gets a single click (FLY-IO-DEPLOYMENT §12). The data volume is KEPT by default:
+# deleting the Postgres app deletes its volume, so the database app is only destroyed when the
+# second, separate input says so. Reverse dependency order, so nothing keeps serving requests
+# against an app that has already gone.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "destroy work-in-poland" to proceed'
+        required: true
+        type: string
+      include_database:
+        description: "ALSO destroy the Postgres app and its volume (irreversible)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  API_APP: work-in-poland-api-prod
+  WEB_APP: work-in-poland-web-prod
+  AUTH_APP: work-in-poland-authservice-prod
+  PG_APP: work-in-poland-postgres
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check the confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          [ "${CONFIRM}" = "destroy work-in-poland" ] || { echo "::error::Confirmation text does not match."; exit 1; }
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Destroy apps (reverse dependency order)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          INCLUDE_DB: ${{ inputs.include_database }}
+        run: |
+          set -uo pipefail
+          # Legacy names go in this list when an app is ever renamed (REPO-BASELINE §4), or the old
+          # resources outlive every cleanup and bill forever.
+          for a in "${WEB_APP}" "${API_APP}" "${AUTH_APP}"; do
+            if flyctl apps list --json | jq -e --arg a "$a" '.[] | select((.Name // .name) == $a)' >/dev/null; then
+              flyctl apps destroy "$a" --yes || echo "::warning::could not destroy $a"
+            else
+              echo "$a does not exist, skipping."
+            fi
+          done
+          if [ "${INCLUDE_DB}" = "true" ]; then
+            flyctl apps destroy "${PG_APP}" --yes || echo "::warning::could not destroy ${PG_APP}"
+          else
+            echo "Database app ${PG_APP} and its volume were KEPT."
+          fi

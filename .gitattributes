@@ -1,0 +1,29 @@
+# A real .gitattributes (REPO-BASELINE.md §1): normalise line endings on the way in and check
+# out LF everywhere. A CRLF in a shell script fails with an unreadable "bad interpreter" error.
+* text=auto eol=lf
+
+*.sh     text eol=lf
+*.ps1    text eol=lf
+*.cs     text eol=lf diff=csharp
+*.csproj text eol=lf
+*.props  text eol=lf
+*.sln    text eol=lf
+*.ts     text eol=lf
+*.tsx    text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.yml    text eol=lf
+*.toml   text eol=lf
+
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.woff2 binary
+
+# EF Core generated files: collapsed in diffs, still diffable with `git diff --text`.
+**/Migrations/*.Designer.cs         linguist-generated=true
+**/Migrations/*ModelSnapshot.cs      linguist-generated=true
+web/app/pnpm-lock.yaml                linguist-generated=true
+web/pnpm-lock.yaml                    linguist-generated=true
+
+docs/** linguist-documentation=true

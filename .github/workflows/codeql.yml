@@ -1,0 +1,64 @@
+name: CodeQL
+
+# REPO-BASELINE §1: static analysis exists only when a human remembers to run it. This runs on every
+# pull request and weekly (rule sets change under a codebase that has not). It covers the C# API and
+# the TypeScript web app; the dependency audit lives in ci.yml (NuGetAudit on restore, pnpm audit).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "claude/**"]
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: csharp
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-and-quality
+
+      - name: Build
+        if: matrix.language == 'csharp'
+        run: |
+          dotnet restore WorkInPoland.sln
+          dotnet build WorkInPoland.sln --no-restore --configuration Release
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

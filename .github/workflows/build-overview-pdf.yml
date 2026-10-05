@@ -1,0 +1,44 @@
+name: Build overview PDF
+
+# workflow_dispatch ONLY: a project overview has no release cadence and should not pretend to have
+# one (INIT-GENERIC-TEMPLATE §9). The PDF is a run artifact, never committed — a checked-in PDF is a
+# copy that disagrees with its source the first time the source changes. Only the .tex is committed.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # One source per diagram (docs/diagrams/*.mmd), rendered to VECTOR before the LaTeX step, with a
+      # PINNED renderer. Rendered files are build output (gitignored), never committed.
+      - name: Render diagrams
+        run: |
+          mkdir -p docs/diagrams/rendered
+          cat > /tmp/puppeteer.json <<'JSON'
+          {"executablePath": "/usr/bin/chromium", "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}
+          JSON
+          for f in docs/diagrams/*.mmd; do
+            docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/data" -v /tmp/puppeteer.json:/puppeteer.json:ro \
+              minlag/mermaid-cli:11.4.2 -p /puppeteer.json \
+              -i "/data/$f" -o "/data/docs/diagrams/rendered/$(basename "${f%.mmd}").pdf" --pdfFit -b transparent
+          done
+
+      - uses: xu-cheng/latex-action@v4
+        with:
+          root_file: work-in-poland-overview.tex
+          working_directory: docs/papers
+
+      - name: Name the artifact
+        run: mv docs/papers/work-in-poland-overview.pdf "docs/papers/work-in-poland-overview-${GITHUB_SHA::7}.pdf"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: work-in-poland-overview
+          path: docs/papers/work-in-poland-overview-*.pdf

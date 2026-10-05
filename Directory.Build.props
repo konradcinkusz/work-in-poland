@@ -1,0 +1,24 @@
+<Project>
+  <!-- Everything that is not a version lives here; versions live in Directory.Packages.props. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- P5 / REPO-BASELINE: a vulnerable package, transitive ones included, fails the restore.
+         This is what covers vulnerability detection while Dependabot version updates are off
+         (ADR 0006). -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <Authors>Konrad Cinkusz</Authors>
+    <Copyright>Copyright (c) 2026 Konrad Cinkusz</Copyright>
+    <RepositoryUrl>https://github.com/konradcinkusz/work-in-poland</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+</Project>

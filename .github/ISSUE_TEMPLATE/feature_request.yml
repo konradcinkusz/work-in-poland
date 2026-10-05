@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest something this service should be able to do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project stays deliberately small: it is an auth service, not an application
+        backend, and not a general OAuth or OpenID Connect provider. Its authorization server
+        serves pre-registered MCP connector clients only (ADR 0005). See
+        [CONTRIBUTING.md](https://github.com/konradcinkusz/work-in-poland/blob/main/CONTRIBUTING.md#scope)
+        for where the line is drawn.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can you not do today, and what does that cost you?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should the API or behaviour look like?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Including doing it in your own application instead of here.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This is about identity, credentials, tokens, sessions, or organization membership — not application domain logic.
+          required: true
+        - label: It does not turn the authorization server into a general OAuth or OpenID Connect provider (ID tokens, dynamic client registration, introspection, other grants or client types), which would need a new ADR first.
+          required: true

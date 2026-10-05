@@ -1,0 +1,14 @@
+# gitleaks configuration. Extends the default rule set rather than replacing it.
+# Nothing is allowlisted by value: a finding here is a credential that does not belong in
+# this repository at all (P5). Narrow path entries only, each with the reason beside it.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented, deliberately weak local-development values"
+
+paths = [
+  # secrets.env.example documents every variable with an empty or placeholder value.
+  '''secrets\.env\.example''',
+]

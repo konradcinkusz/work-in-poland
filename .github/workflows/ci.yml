@@ -1,0 +1,199 @@
+name: CI
+
+# Every gate here is also a thing a contributor can run locally (README "Checks"). The e2e job runs
+# the Playwright suite against the REAL stack — Postgres, authservice, API, web — because a suite
+# no job runs is documentation that lies (E2E-ACCEPTANCE-TESTING).
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    name: .NET build, test, kernel guard
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Enables the migration test that applies the real migrations to a real Postgres (P4/P13).
+      WIP_TEST_POSTGRES: "Host=localhost;Port=5432;Database=postgres;Username=postgres"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore WorkInPoland.sln
+
+      # Warnings are errors (Directory.Build.props) and NuGetAudit fails the restore on a vulnerable
+      # package: this is what covers vulnerability detection while Dependabot version updates are
+      # off (ADR 0006).
+      - name: Build
+        run: dotnet build WorkInPoland.sln --no-restore --configuration Release
+
+      # P2: the kernel's ceiling is mechanical, not advisory.
+      - name: Kernel size ceiling
+        run: scripts/check-kernel-size.sh
+
+      - name: Test
+        run: dotnet test WorkInPoland.sln --no-build --configuration Release --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotnet-test-results
+          path: "**/TestResults/*.trx"
+          if-no-files-found: ignore
+
+  format:
+    name: .NET format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Restore
+        run: dotnet restore WorkInPoland.sln
+      - name: Verify formatting
+        run: dotnet format WorkInPoland.sln --no-restore --verify-no-changes --severity error
+
+  migrations:
+    name: Migrations match the model
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Install dotnet-ef
+        run: |
+          dotnet tool install --global dotnet-ef --version "10.*"
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+      - name: Restore
+        run: dotnet restore WorkInPoland.sln
+      # A model change without a migration is invisible on InMemory and fails at runtime on Postgres
+      # (the first request that touches the new column). P4.
+      - name: Pending model changes
+        run: |
+          DATABASE_PROVIDER=PostgreSQL dotnet ef migrations has-pending-model-changes \
+            --project src/WorkInPoland.Api --startup-project src/WorkInPoland.Api
+
+  web:
+    name: Web lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+      # Dependency freshness is deferred (ADR 0006); vulnerability detection is not.
+      - name: Audit (production dependencies)
+        run: pnpm audit --prod --audit-level high
+
+  images:
+    name: Images build and answer their health checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build API image
+        run: docker build -f src/WorkInPoland.Api/Dockerfile -t wip-api:ci .
+      - name: Build web image
+        run: docker build -f web/app/Dockerfile -t wip-web:ci .
+      # P8's literal test, in a container: no credential, no database, no identity provider ->
+      # still a working system with reduced features, and /health says which are degraded.
+      - name: API answers /health with zero configuration
+        run: |
+          docker run -d --name api -p 8081:8080 wip-api:ci
+          for _ in $(seq 1 30); do curl -fsS http://localhost:8081/health && exit 0; sleep 2; done
+          docker logs api; exit 1
+      - name: Web answers /healthz and /api/config
+        run: |
+          docker run -d --name web -p 3000:3000 -e API_BASE_URL=http://localhost:8081 wip-web:ci
+          for _ in $(seq 1 30); do curl -fsS http://localhost:3000/healthz && break; sleep 2; done
+          curl -fsS http://localhost:3000/api/config
+      - name: Container logs on failure
+        if: failure()
+        run: docker ps -a && docker logs api || true && docker logs web || true
+
+  e2e:
+    name: End-to-end (real stack)
+    runs-on: ubuntu-latest
+    needs: [dotnet, web]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Install Playwright browser
+        run: pnpm --filter e2e exec playwright install --with-deps chromium
+      - name: Run the suite against the stack
+        run: scripts/dev-stack.sh e2e
+        env:
+          CI: "true"
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose -f tests/e2e/docker-compose.yml logs --tail 200 || true
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            tests/e2e/playwright-report
+            tests/e2e/test-results
+          if-no-files-found: ignore
+
+  workflows:
+    name: Workflow syntax and links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Every relative link in the docs resolves
+        run: node scripts/check-links.mjs
