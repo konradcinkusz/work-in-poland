@@ -65,8 +65,9 @@ export function ProfileSection({ userName: initialUserName }: Props) {
         {success && <div className="alert alert-success text-sm">Profil zaktualizowany pomyślnie.</div>}
 
         <div>
-          <label className="block text-sm font-medium">Nazwa użytkownika</label>
+          <label htmlFor="username" className="block text-sm font-medium">Nazwa użytkownika</label>
           <input
+            id="username"
             type="text"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}

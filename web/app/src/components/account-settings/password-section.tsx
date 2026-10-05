@@ -68,8 +68,9 @@ export function PasswordSection() {
         )}
 
         <div>
-          <label className="block text-sm font-medium">Bieżące hasło</label>
+          <label htmlFor="current-password" className="block text-sm font-medium">Bieżące hasło</label>
           <input
+            id="current-password"
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
@@ -80,8 +81,9 @@ export function PasswordSection() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium">Nowe hasło</label>
+          <label htmlFor="new-password" className="block text-sm font-medium">Nowe hasło</label>
           <input
+            id="new-password"
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -94,8 +96,9 @@ export function PasswordSection() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium">Potwierdź nowe hasło</label>
+          <label htmlFor="confirm-password" className="block text-sm font-medium">Potwierdź nowe hasło</label>
           <input
+            id="confirm-password"
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}

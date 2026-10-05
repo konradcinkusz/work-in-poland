@@ -158,8 +158,9 @@ export function TwoFactorManage({ onDisabled }: Props) {
           </p>
 
           <div>
-            <label className="block text-sm font-medium">Hasło</label>
+            <label htmlFor="disable-password" className="block text-sm font-medium">Hasło</label>
             <input
+              id="disable-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -170,8 +171,9 @@ export function TwoFactorManage({ onDisabled }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Kod weryfikacyjny</label>
+            <label htmlFor="disable-code" className="block text-sm font-medium">Kod weryfikacyjny</label>
             <input
+              id="disable-code"
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}

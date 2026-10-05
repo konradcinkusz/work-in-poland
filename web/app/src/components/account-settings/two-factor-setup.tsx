@@ -146,8 +146,9 @@ export function TwoFactorSetup({ onSetupComplete }: Props) {
 
           <form onSubmit={handleConfirm} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium">Wpisz kod z aplikacji autentykacyjnej</label>
+              <label htmlFor="verification-code" className="block text-sm font-medium">Wpisz kod z aplikacji autentykacyjnej</label>
               <input
+                id="verification-code"
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
