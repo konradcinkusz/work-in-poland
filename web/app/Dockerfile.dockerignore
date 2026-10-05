@@ -1,0 +1,17 @@
+# BuildKit per-Dockerfile ignore for `docker build -f web/app/Dockerfile .` (context = repo root).
+# Takes precedence over the root .dockerignore (which is the .NET image's allow-list), so the
+# root file does not need to change. Exclusion-based: everything out, then the web inputs back in.
+*
+!package.json
+!pnpm-workspace.yaml
+!pnpm-lock.yaml
+!tests/e2e/package.json
+!web/app/**
+# re-exclude build output and local state inside web/app (later rules win)
+**/node_modules
+**/.next
+web/app/.env*
+!web/app/.env.example
+web/app/coverage
+**/*.tsbuildinfo
+**/next-env.d.ts

@@ -1,0 +1,101 @@
+# The full stack, without Aspire: Postgres + authservice + API + web.
+#
+# Used by the e2e job in CI and by `scripts/dev-stack.sh`. It is NOT the production topology
+# (that is flyio/) and NOT the development composition root (that is src/WorkInPoland.AppHost,
+# P1); it exists so the browser tests run against the real identity service with no mocks.
+#
+# Everything here is throwaway: Postgres uses trust authentication on a private network, the
+# JWT signing key is generated per run into tests/e2e/.generated (gitignored) by
+# `scripts/dev-stack.sh prepare`, and nothing in this file is a credential.
+
+name: wip-e2e
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d authdb"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  authservice:
+    # Published image in CI. Where ghcr.io blobs are unreachable, `scripts/dev-stack.sh` builds the
+    # sibling authservice checkout into this tag instead (read-only use of its Dockerfile).
+    image: ${AUTHSERVICE_IMAGE:-ghcr.io/konradcinkusz/authservice:v0.3.4}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DATABASE_PROVIDER: PostgreSQL
+      Database__SchemaMode: Migrate
+      Database__MigrationsAssembly: AuthService.Migrations.PostgreSQL
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=authdb;Username=postgres;Include Error Detail=true"
+      Jwt__Algorithm: RS256
+      Jwt__PrivateKeyPath: /run/keys/jwt-signing.pem
+      Jwt__Issuer: WorkInPoland
+      Jwt__Audience: WorkInPoland
+      App__Name: Work in Poland
+      FrontendBaseUrl: http://localhost:3000
+      OAuth__PostLoginRedirectBaseUrl: http://localhost:3000
+      ConsentVersions__Terms: "2026-10-05"
+      ConsentVersions__Privacy: "2026-10-05"
+      ConsentVersions__Cookies: "2026-10-05"
+    volumes:
+      - ./.generated/jwt-signing.pem:/run/keys/jwt-signing.pem:ro
+    ports:
+      - "8080:8080"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: src/WorkInPoland.Api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      authservice:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DATABASE_PROVIDER: PostgreSQL
+      ConnectionStrings__apidb: "Host=postgres;Port=5432;Database=apidb;Username=postgres;Include Error Detail=true"
+      Seed__Demo: "true"
+      Jwt__Authority: http://authservice:8080
+      Jwt__RequireHttpsMetadata: "false"
+      Jwt__Issuer: WorkInPoland
+      Jwt__Audience: WorkInPoland
+    ports:
+      - "8081:8080"
+
+  web:
+    build:
+      context: ../..
+      dockerfile: web/app/Dockerfile
+    depends_on:
+      - api
+      - authservice
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      API_BASE_URL: http://api:8080
+      AUTH_BASE_URL: http://authservice:8080
+      # The browser-facing origin, used for the social-login redirect.
+      AUTH_PUBLIC_URL: http://localhost:8080
+      AUTH_ISSUER: WorkInPoland
+      AUTH_AUDIENCE: WorkInPoland
+      PUBLIC_API_URL: http://localhost:8081
+      PUBLIC_SITE_URL: http://localhost:3000
+      CONSENT_TERMS_VERSION: "2026-10-05"
+      CONSENT_PRIVACY_VERSION: "2026-10-05"
+      # The stack is plain http on localhost; a `secure` cookie would never be sent back.
+      SESSION_COOKIE_SECURE: "false"
+    ports:
+      - "3000:3000"
