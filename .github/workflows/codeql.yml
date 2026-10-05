@@ -23,6 +23,11 @@ concurrency:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
+    # Code scanning needs a public repository or GitHub Advanced Security. On a private repository
+    # without it, the upload fails with "Code scanning is not enabled" (a configuration error that no
+    # workflow change can fix), so the job is skipped there. Set the repository variable
+    # CODEQL_ENABLED=true once code scanning is available (deviation register row 8).
+    if: ${{ github.event.repository.private == false || vars.CODEQL_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

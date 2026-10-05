@@ -59,6 +59,7 @@ Every row carries a date and a reason. An acknowledged deviation is a decision; 
 | 4 | 2026-10-05 | Second service **not** created for MCP; one extra rate-limit policy (`public`) beyond the standard `auth`/`api`/global set; no `auth` policy (identity is elsewhere) | MCP is an adapter over one aggregate ([ADR 0002](../adr/0002-mcp-is-an-adapter-inside-the-api.md)); anonymous reads need their own bucket | the MCP layer gains its own credential or availability risk |
 | 5 | 2026-10-05 | Web is limited to one instance in production | refresh-token rotation is serialised **in process**; two instances can race the single-use refresh token and sign a user out | a shared lock (or sticky sessions) is added |
 | 6 | 2026-10-05 | Single environment (`prod`), no staging, no PR preview environments | one repository owner, no users yet; the file layout supports a copy per environment ([`INFRASTRUCTURE-ANALYSIS.md`](../../flyio/INFRASTRUCTURE-ANALYSIS.md)) | the first paying customer |
+| 8 | 2026-10-05 | CodeQL runs only when the repository is public or `CODEQL_ENABLED=true` | the repository is private and code scanning is not enabled for it, so every analysis failed at upload; the vulnerability half of the baseline is still covered by NuGetAudit on restore, `pnpm audit` and gitleaks | the repo goes public, or Advanced Security is enabled (set `CODEQL_ENABLED=true`) |
 | 7 | 2026-10-05 | No Azure track | not requested; Fly.io is the product deployment | an Azure target is requested |
 
 ## Friction with authservice
