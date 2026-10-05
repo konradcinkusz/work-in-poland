@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { ThemeToggle } from './theme-toggle';
 import { useSession } from './session';
 
 const NAV = [
@@ -32,9 +33,9 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="border-b border-slate-200 bg-white">
+    <header className="border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-        <Link href="/" className="text-lg font-bold text-slate-900 no-underline">
+        <Link href="/" className="text-lg font-bold text-slate-900 no-underline dark:text-slate-100">
           Work in Poland
         </Link>
         <nav aria-label="Główna nawigacja" className="order-3 w-full sm:order-2 sm:w-auto">
@@ -46,7 +47,7 @@ export function SiteHeader() {
                   <Link
                     href={item.href}
                     aria-current={active ? 'page' : undefined}
-                    className={`inline-block py-2 text-sm font-medium no-underline hover:underline ${active ? 'text-slate-900 underline' : 'text-slate-700'}`}
+                    className={`inline-block py-2 text-sm font-medium no-underline hover:underline dark:text-slate-300 dark:hover:text-slate-200 ${active ? 'text-slate-900 underline dark:text-slate-100' : 'text-slate-700'}`}
                   >
                     {item.label}
                   </Link>
@@ -56,6 +57,7 @@ export function SiteHeader() {
           </ul>
         </nav>
         <div className="order-2 flex items-center gap-2 sm:order-3">
+          <ThemeToggle />
           {session.status === 'anonymous' ? (
             <>
               <Link href="/logowanie" className="btn btn-secondary btn-sm">Zaloguj się</Link>

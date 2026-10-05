@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { SessionProvider } from '@/components/session';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { ThemeScript } from '@/components/theme-script';
 import { publicSiteUrl } from '@/lib/env';
 import './globals.css';
 
@@ -22,7 +23,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // Pages are rendered per request: the CSP nonce set by the edge gate must reach the framework's scripts.
   await connection();
   return (
-    <html lang="pl">
+    <html lang="pl" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body className="flex min-h-screen flex-col font-sans">
         <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">
           Przejdź do treści

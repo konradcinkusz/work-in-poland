@@ -1,4 +1,5 @@
 import { renderMarkdown } from './markdown';
+import { toMonthly } from './salary';
 import type { ContractType, JobDetail, SalaryOffer } from './types';
 
 const EMPLOYMENT_TYPE: Record<ContractType, string> = {
@@ -19,9 +20,25 @@ function monetary(s: SalaryOffer) {
 }
 
 /**
- * Google for Jobs `JobPosting`. Google accepts one `baseSalary`; the job's first offer is used
- * (the page shows all of them). Remote jobs carry `jobLocationType: TELECOMMUTE` plus
- * `applicantLocationRequirements`; a worldwide remote job has no applicant restriction to declare.
+ * Select the salary offer for JSON-LD baseSalary. Google accepts one; we choose deterministically:
+ * highest max salary normalized to PLN monthly. If no PLN offers exist, fall back to the first offer.
+ */
+function selectBaseSalaryOffer(salaries: SalaryOffer[]): SalaryOffer | undefined {
+  if (!salaries.length) return undefined;
+  const pln = salaries.filter((s) => s.currency === 'PLN');
+  if (!pln.length) return salaries[0];
+  return pln.reduce((best, current) => {
+    const bestMax = toMonthly(best.max, best.period);
+    const currentMax = toMonthly(current.max, current.period);
+    return currentMax > bestMax ? current : best;
+  });
+}
+
+/**
+ * Google for Jobs `JobPosting`. Google accepts one `baseSalary`; we select deterministically
+ * (the PLN offer with the highest normalized monthly max; if none, the first offer).
+ * Remote jobs carry `jobLocationType: TELECOMMUTE` plus `applicantLocationRequirements`
+ * (countries/area for Poland/EU; worldwide remote has none to declare).
  */
 export function buildJobPosting(job: JobDetail, siteUrl: string): Record<string, unknown> {
   const employmentType = [...new Set(job.salaries.map((s) => EMPLOYMENT_TYPE[s.contractType]))];
@@ -34,7 +51,7 @@ export function buildJobPosting(job: JobDetail, siteUrl: string): Record<string,
     title: job.title,
     description: renderMarkdown(job.description),
     datePosted: (job.publishedAt ?? new Date().toISOString()).slice(0, 10),
-    directApply: false,
+    directApply: true,
     url: `${siteUrl}/oferty/${job.slug}`,
     identifier: { '@type': 'PropertyValue', name: job.company.name, value: job.id },
     hiringOrganization: {
@@ -47,8 +64,8 @@ export function buildJobPosting(job: JobDetail, siteUrl: string): Record<string,
   };
   if (job.expiresAt) posting.validThrough = job.expiresAt;
   if (employmentType.length > 0) posting.employmentType = employmentType.length === 1 ? employmentType[0] : employmentType;
-  const first = job.salaries[0];
-  if (first) posting.baseSalary = monetary(first);
+  const selected = selectBaseSalaryOffer(job.salaries);
+  if (selected) posting.baseSalary = monetary(selected);
 
   if (job.workMode === 'remote') {
     posting.jobLocationType = 'TELECOMMUTE';
@@ -57,6 +74,7 @@ export function buildJobPosting(job: JobDetail, siteUrl: string): Record<string,
     } else if (job.remoteScope === 'eu') {
       posting.applicantLocationRequirements = { '@type': 'AdministrativeArea', name: 'European Union' };
     }
+    // worldwide remote: no applicantLocationRequirements
   }
   return posting;
 }
