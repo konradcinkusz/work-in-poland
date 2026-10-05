@@ -6,7 +6,7 @@ export type SessionState =
   /** Not known yet. Treated OPTIMISTICALLY by the UI: no "log in" flash for a signed-in user. */
   | { status: 'loading' }
   | { status: 'anonymous' }
-  | { status: 'authenticated'; email: string | null; requiresConsent: boolean; emailConfirmed: boolean; hasPassword: boolean };
+  | { status: 'authenticated'; email: string | null; roles: string[]; requiresConsent: boolean; emailConfirmed: boolean; hasPassword: boolean };
 
 interface Ctx {
   session: SessionState;
@@ -27,9 +27,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     let next: SessionState;
     try {
       const res = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
-      const data = (await res.json()) as { authenticated?: boolean; email?: string | null; requiresConsent?: boolean; emailConfirmed?: boolean; hasPassword?: boolean };
+      const data = (await res.json()) as { authenticated?: boolean; email?: string | null; roles?: string[]; requiresConsent?: boolean; emailConfirmed?: boolean; hasPassword?: boolean };
       next = data.authenticated
-        ? { status: 'authenticated', email: data.email ?? null, requiresConsent: !!data.requiresConsent, emailConfirmed: data.emailConfirmed !== false, hasPassword: data.hasPassword !== false }
+        ? { status: 'authenticated', email: data.email ?? null, roles: data.roles ?? [], requiresConsent: !!data.requiresConsent, emailConfirmed: data.emailConfirmed !== false, hasPassword: data.hasPassword !== false }
         : { status: 'anonymous' };
     } catch {
       next = { status: 'anonymous' };
