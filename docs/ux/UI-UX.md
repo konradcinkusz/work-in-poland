@@ -1,0 +1,57 @@
+# UI/UX — screens, flows, and the ranked backlog
+
+The web app (`web/app`) is a Polish-language Next.js backend-for-frontend. This is the inventory of
+what exists, what the first delivery decided and why, and what is left, ranked. Every backlog item
+names the gap or principle it serves, so the next session picks it up instead of re-deriving it.
+
+## Screens
+
+| Route | Who | What |
+|---|---|---|
+| `/` | anyone | Hero, live stats, GET search form (filters live in the URL, so a search is shareable), job cards (salary per contract type with gross/net and period, skills, verified/promoted markers), pagination, empty and error states |
+| `/oferty/[slug]` | anyone | Detail with safe markdown, all salary offers, **Aplikuj** (counts the click, then redirects to the employer's https page), save-to-tracker (anonymous → login with `?redirect=`), Google for Jobs `JobPosting` JSON-LD |
+| `/firmy/[slug]` | anyone | Company and its open jobs |
+| `/wynagrodzenia` | anyone | Salary benchmark: min / p25 / median / p75 / max as an SVG range, sample size, "Za mało danych (min. 3 oferty)" |
+| `/mcp` | anyone | "Asystenci AI": the two endpoints, copyable snippets (addresses from runtime config), tools and scopes, honest note that the OAuth connector needs an operator-issued client |
+| `/logowanie`, `/rejestracja`, `/reset-hasla`, `/reset-password`, `/verify-email`, `/oauth/callback`, `/zgody` | anyone / signed in | Sign-in (with TOTP or recovery code, lockout and unverified-email states, social buttons drawn from `/api/auth/providers`), register (consent versions read from authservice, never hard-coded), reset, verify, social callback, forced consent re-acceptance |
+| `/konto` | candidate | Tracker grouped by status with notes, "no CV is stored" statement, and **Moje dane**: download export, typed-confirmation deletion (service data first, then the account) |
+| `/pracodawca`, `/pracodawca/oferty/nowa`, `/pracodawca/oferty/[id]` | employer | Companies (NIP checksum), jobs table with views/apply-clicks and publish/close/renew/delete-draft, the job form (one salary row per contract type, skill chips, markdown preview, field errors from the API) |
+| `/regulamin`, `/polityka-prywatnosci`, `/cookies` | anyone | **Drafts**, each with a visible "wymaga weryfikacji przez prawnika" banner; `/cookies` records the decision that only strictly necessary cookies are used, so no banner |
+| `/healthz`, `/api/config`, `/sitemap.xml`, `/robots.txt`, error and not-found pages | infra | Dedicated health route (never the index page), runtime config, sitemap, Polish error pages |
+
+## Decisions that shape the flows
+
+- **The browser talks only to its own origin.** Tokens live in `httpOnly`, `SameSite=Strict` cookies set by BFF routes; client JS never sees one. Consequence: a cross-site link to `/konto` (for example from an email) lands on login first.
+- **Middleware verifies, it does not decode** — signature, issuer and audience against authservice's JWKS, RS256 pinned; forged tokens are cleared and sent to login with `?redirect=`; a per-request CSP nonce means every page renders per request.
+- **Apply is a redirect** ([ADR 0004](../adr/0004-apply-by-redirect.md)); the tracker is the candidate's own note.
+- **The salary rule is explained in the form** ([ADR 0007](../adr/0007-mandatory-salary-ranges.md)) and stated as a product rule, not legal advice.
+- **Refresh is serialised in-process** — hence one web instance in production ([deviation 5](../architecture/00-ARCHITECTURE.md#deviation-register)).
+
+## Verified, and not
+
+Playwright runs 28 tests against the real stack (Postgres, authservice, API, web) — anonymous search and
+JSON-LD, the apply redirect, employer register → company → publish → public visibility, the candidate
+tracker with persistence, the auth guard (redirect and return, forged cookie rejected, logout clears both
+cookies), field-level validation, MCP, health, config, sitemap — green in this session. **Not verified:**
+the 2FA success path and social login against a real provider, the deletion flow end to end, production
+TLS/HSTS, and anything in a browser other than Chromium.
+
+## Backlog, ranked
+
+| # | Item | Serves |
+|---|---|---|
+| 1 | **Run the deploy once** (first tag) and a public-URL walkthrough of register → publish → search | P12; the definition of done that this session could not reach |
+| 2 | **Tested backups** for Postgres before the first real user | [`INFRASTRUCTURE-ANALYSIS.md`](../../flyio/INFRASTRUCTURE-ANALYSIS.md) |
+| 3 | **Lawyer review of the three legal pages**, then bump `ConsentVersions` (authservice) and `CONSENT_*_VERSION` (web) together | [`NASTEPNE-KROKI.md`](../analysis/NASTEPNE-KROKI.md) §4 |
+| 4 | **Account settings page**: 2FA enrolment, change password, profile (authservice supports them) | [identity guide](https://github.com/konradcinkusz/architecture-standards/blob/main/docs/guides/IDENTITY-AND-ACCOUNTS.md), lockout/2FA are otherwise unreachable for users |
+| 5 | **Reconcile deleted accounts**: authservice has no deletion webhook, so tracker rows and companies of a deleted account persist. Options: periodic reconciliation, or an authservice change | RODO Art. 17; [friction 3](../architecture/00-ARCHITECTURE.md#friction-with-authservice) |
+| 6 | **Admin UI** (verify companies, unpublish with reason, promote) over the existing `/api/v1/admin/*` | ADR 0005/0007 — operators currently need `curl` |
+| 7 | **Employer-visible report/abuse flow** and a public "zgłoś ofertę" link | ADR 0010 (moderation), analysis §4 |
+| 8 | **Make the OAuth MCP connector self-serve** (or ask authservice for public clients) | [ADR 0003](../adr/0003-authservice-is-the-identity-provider.md) friction 1 |
+| 9 | **authservice's 20/min auth limiter vs one web address** — decide before concurrent sign-ins approach that | [friction 2](../architecture/00-ARCHITECTURE.md#friction-with-authservice) |
+| 10 | Web telemetry (OTLP) and error tracking; export to a real collector from the API | P15 |
+| 11 | Shared refresh lock so the web can scale past one instance | deviation 5 |
+| 12 | `/firmy` list page; company logo upload (URL only today); employer per-job statistics page | product |
+| 13 | Tracker: drag and drop, pagination; Polish pluralisation ("oferta/oferty/ofert") and the "Za mało danych" copy | polish |
+| 14 | JSON-LD: `baseSalary` carries only the first offer (Google accepts one); no `applicantLocationRequirements` for worldwide remote | SEO ([analysis §4](../analysis/HIMALAYAS-DLA-POLSKI.md): verify how Google for Jobs treats Polish listings) |
+| 15 | Dark theme; the consent re-acceptance redirect is client-side, not edge-enforced | a11y / hardening |

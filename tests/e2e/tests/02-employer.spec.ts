@@ -87,7 +87,7 @@ test.describe.serial('employer journey', () => {
     await expect(page).toHaveURL(/\/pracodawca$/);
     const row = page.getByRole('row').filter({ hasText: jobTitle });
     await expect(row).toContainText('Opublikowana');
-    await row.getByRole('link', { name: jobTitle }).click();
+    await row.getByRole('link', { name: jobTitle, exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name: jobTitle })).toBeVisible();
     await expect(page.getByText(/18\s000 – 24\s000 PLN netto \/ mies\. \(B2B\)/).first()).toBeVisible();
     await expect(page.getByText(/15\s000 – 20\s000 PLN brutto \/ mies\. \(UoP\)/).first()).toBeVisible();
