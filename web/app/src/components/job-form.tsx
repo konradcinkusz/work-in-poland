@@ -332,3 +332,95 @@ export function JobForm({ jobId }: { jobId: string | null }) {
     </form>
   );
 }
+
+export function JobStats({ jobId }: { jobId: string }) {
+  const router = useRouter();
+  const [job, setJob] = useState<EmployerJob | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [renewing, setRenewing] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const res = await api<EmployerJob>(`/employer/jobs/${jobId}`);
+      if (!alive) return;
+      if (res.ok && res.data) {
+        setJob(res.data);
+      } else if (res.status === 401) {
+        router.push(loginUrl(`/pracodawca/oferty/${jobId}`));
+      }
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [jobId, router]);
+
+  const renew = async () => {
+    if (!job) return;
+    setRenewing(true);
+    setError('');
+    const res = await api<EmployerJob>(`/employer/jobs/${jobId}/renew`, { method: 'POST' });
+    setRenewing(false);
+    if (res.ok && res.data) {
+      setJob(res.data);
+    } else {
+      setError(res.problem?.detail ?? 'Nie udało się odnowić oferty.');
+    }
+  };
+
+  if (loading || !job) return null;
+  if (job.status === 'draft') return null;
+
+  const ctr = job.views > 0 ? ((job.applyClicks / job.views) * 100).toFixed(1) : '0';
+  const canRenew = job.status === 'closed' || job.status === 'expired';
+  const publishedDate = job.publishedAt ? new Date(job.publishedAt).toLocaleDateString('pl-PL') : '—';
+  const expiryDate = job.expiresAt ? new Date(job.expiresAt).toLocaleDateString('pl-PL') : '—';
+
+  return (
+    <div className="card">
+      {error && <Alert kind="error">{error}</Alert>}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Wyświetlenia</p>
+          <p className="text-2xl font-bold">{job.views}</p>
+        </div>
+        <div>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Kliknięcia &quot;Aplikuj&quot;</p>
+          <p className="text-2xl font-bold">{job.applyClicks}</p>
+        </div>
+        <div>
+          <p className="text-sm text-slate-600 dark:text-slate-400">CTR</p>
+          <p className="text-2xl font-bold">{ctr}%</p>
+        </div>
+        <div>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Status</p>
+          <p className="text-sm font-semibold">{job.status === 'published' ? 'Opublikowana' : job.status === 'closed' ? 'Zamknięta' : 'Wygasła'}</p>
+        </div>
+      </div>
+      <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Opublikowana</p>
+            <p className="font-semibold">{publishedDate}</p>
+          </div>
+          <div>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Wygasa</p>
+            <p className="font-semibold">{expiryDate}</p>
+          </div>
+          {canRenew && (
+            <div>
+              <button
+                type="button"
+                onClick={() => void renew()}
+                disabled={renewing}
+                className="btn btn-secondary btn-sm w-full"
+              >
+                {renewing ? 'Odnawianie…' : 'Odnów'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

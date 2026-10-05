@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
       authenticated: true,
       userId: me.data.id ?? null,
       email: me.data.email ?? null,
+      roles: me.data.roles ?? [],
       requiresConsent: me.data.requiresConsent === true,
       emailConfirmed: me.data.emailConfirmed !== false,
       hasPassword: me.data.hasPassword !== false,
