@@ -15,6 +15,7 @@ names the gap or principle it serves, so the next session picks it up instead of
 | `/mcp` | anyone | "Asystenci AI": the two endpoints, copyable snippets (addresses from runtime config), tools and scopes, honest note that the OAuth connector needs an operator-issued client |
 | `/logowanie`, `/rejestracja`, `/reset-hasla`, `/reset-password`, `/verify-email`, `/oauth/callback`, `/zgody` | anyone / signed in | Sign-in (with TOTP or recovery code, lockout and unverified-email states, social buttons drawn from `/api/auth/providers`), register (consent versions read from authservice, never hard-coded), reset, verify, social callback, forced consent re-acceptance |
 | `/konto` | candidate | Tracker grouped by status with notes, "no CV is stored" statement, and **Moje dane**: download export, typed-confirmation deletion (service data first, then the account) |
+| `/konto/ustawienia` | signed in | Account settings: change password (with token reissue), 2FA enrollment/disable with recovery codes, profile (username update); sections hidden for OAuth-only accounts |
 | `/pracodawca`, `/pracodawca/oferty/nowa`, `/pracodawca/oferty/[id]` | employer | Companies (NIP checksum), jobs table with views/apply-clicks and publish/close/renew/delete-draft, the job form (one salary row per contract type, skill chips, markdown preview, field errors from the API) |
 | `/regulamin`, `/polityka-prywatnosci`, `/cookies` | anyone | **Drafts**, each with a visible "wymaga weryfikacji przez prawnika" banner; `/cookies` records the decision that only strictly necessary cookies are used, so no banner |
 | `/healthz`, `/api/config`, `/sitemap.xml`, `/robots.txt`, error and not-found pages | infra | Dedicated health route (never the index page), runtime config, sitemap, Polish error pages |
@@ -29,12 +30,13 @@ names the gap or principle it serves, so the next session picks it up instead of
 
 ## Verified, and not
 
-Playwright runs 28 tests against the real stack (Postgres, authservice, API, web) — anonymous search and
+Playwright runs 36 tests against the real stack (Postgres, authservice, API, web) — anonymous search and
 JSON-LD, the apply redirect, employer register → company → publish → public visibility, the candidate
 tracker with persistence, the auth guard (redirect and return, forged cookie rejected, logout clears both
-cookies), field-level validation, MCP, health, config, sitemap — green in this session. **Not verified:**
-the 2FA success path and social login against a real provider, the deletion flow end to end, production
-TLS/HSTS, and anything in a browser other than Chromium.
+cookies), field-level validation, MCP, health, config, sitemap, account settings (password change, 2FA
+enrollment/disable, profile update, recovery codes) — green in this session. **Not verified:**
+social login against a real provider, the deletion flow end to end, production TLS/HSTS, and anything
+in a browser other than Chromium.
 
 ## Backlog, ranked
 
@@ -43,15 +45,14 @@ TLS/HSTS, and anything in a browser other than Chromium.
 | 1 | **Run the deploy once** (first tag) and a public-URL walkthrough of register → publish → search | P12; the definition of done that this session could not reach |
 | 2 | **Tested backups** for Postgres before the first real user | [`INFRASTRUCTURE-ANALYSIS.md`](../../flyio/INFRASTRUCTURE-ANALYSIS.md) |
 | 3 | **Lawyer review of the three legal pages**, then bump `ConsentVersions` (authservice) and `CONSENT_*_VERSION` (web) together | [`NASTEPNE-KROKI.md`](../analysis/NASTEPNE-KROKI.md) §4 |
-| 4 | **Account settings page**: 2FA enrolment, change password, profile (authservice supports them) | [identity guide](https://github.com/konradcinkusz/architecture-standards/blob/main/docs/guides/IDENTITY-AND-ACCOUNTS.md), lockout/2FA are otherwise unreachable for users |
-| 5 | **Reconcile deleted accounts**: authservice has no deletion webhook, so tracker rows and companies of a deleted account persist. Options: periodic reconciliation, or an authservice change | RODO Art. 17; [friction 3](../architecture/00-ARCHITECTURE.md#friction-with-authservice) |
-| 6 | **Admin UI** (verify companies, unpublish with reason, promote) over the existing `/api/v1/admin/*` | ADR 0005/0007 — operators currently need `curl` |
-| 7 | **Employer-visible report/abuse flow** and a public "zgłoś ofertę" link | ADR 0010 (moderation), analysis §4 |
-| 8 | **Make the OAuth MCP connector self-serve** (or ask authservice for public clients) | [ADR 0003](../adr/0003-authservice-is-the-identity-provider.md) friction 1 |
-| 9 | **authservice's 20/min auth limiter vs one web address** — decide before concurrent sign-ins approach that | [friction 2](../architecture/00-ARCHITECTURE.md#friction-with-authservice) |
-| 10 | Web telemetry (OTLP) and error tracking; export to a real collector from the API | P15 |
-| 11 | Shared refresh lock so the web can scale past one instance | deviation 5 |
-| 12 | `/firmy` list page; company logo upload (URL only today); employer per-job statistics page | product |
-| 13 | Tracker: drag and drop, pagination; Polish pluralisation ("oferta/oferty/ofert") and the "Za mało danych" copy | polish |
-| 14 | JSON-LD: `baseSalary` carries only the first offer (Google accepts one); no `applicantLocationRequirements` for worldwide remote | SEO ([analysis §4](../analysis/HIMALAYAS-DLA-POLSKI.md): verify how Google for Jobs treats Polish listings) |
-| 15 | Dark theme; the consent re-acceptance redirect is client-side, not edge-enforced | a11y / hardening |
+| 4 | **Reconcile deleted accounts**: authservice has no deletion webhook, so tracker rows and companies of a deleted account persist. Options: periodic reconciliation, or an authservice change | RODO Art. 17; [friction 3](../architecture/00-ARCHITECTURE.md#friction-with-authservice) |
+| 5 | **Admin UI** (verify companies, unpublish with reason, promote) over the existing `/api/v1/admin/*` | ADR 0005/0007 — operators currently need `curl` |
+| 6 | **Employer-visible report/abuse flow** and a public "zgłoś ofertę" link | ADR 0010 (moderation), analysis §4 |
+| 7 | **Make the OAuth MCP connector self-serve** (or ask authservice for public clients) | [ADR 0003](../adr/0003-authservice-is-the-identity-provider.md) friction 1 |
+| 8 | **authservice's 20/min auth limiter vs one web address** — decide before concurrent sign-ins approach that | [friction 2](../architecture/00-ARCHITECTURE.md#friction-with-authservice) |
+| 9 | Web telemetry (OTLP) and error tracking; export to a real collector from the API | P15 |
+| 10 | Shared refresh lock so the web can scale past one instance | deviation 5 |
+| 11 | `/firmy` list page; company logo upload (URL only today); employer per-job statistics page | product |
+| 12 | Tracker: drag and drop, pagination; Polish pluralisation ("oferta/oferty/ofert") and the "Za mało danych" copy | polish |
+| 13 | JSON-LD: `baseSalary` carries only the first offer (Google accepts one); no `applicantLocationRequirements` for worldwide remote | SEO ([analysis §4](../analysis/HIMALAYAS-DLA-POLSKI.md): verify how Google for Jobs treats Polish listings) |
+| 14 | Dark theme; the consent re-acceptance redirect is client-side, not edge-enforced | a11y / hardening |
