@@ -70,16 +70,16 @@ test.describe.serial('employer journey', () => {
     await page.goto('/pracodawca/oferty/nowa');
     await fillJobBasics(page, jobTitle);
     const row1 = page.getByRole('group', { name: 'Widełka 1' });
-    await row1.getByLabel('Od').fill('18000');
-    await row1.getByLabel('Do').fill('24000');
+    await row1.getByRole('spinbutton', { name: 'Od' }).fill('18000');
+    await row1.getByRole('spinbutton', { name: 'Do' }).fill('24000');
     await expect(row1.getByLabel('Rodzaj umowy')).toHaveValue('b2b');
     await expect(row1.getByLabel('Brutto / netto')).toHaveValue('net');
     await page.getByRole('button', { name: 'Dodaj widełkę dla innej umowy' }).click();
     const row2 = page.getByRole('group', { name: 'Widełka 2' });
     await expect(row2.getByLabel('Rodzaj umowy')).toHaveValue('uop');
     await expect(row2.getByLabel('Brutto / netto')).toHaveValue('gross');
-    await row2.getByLabel('Od').fill('15000');
-    await row2.getByLabel('Do').fill('20000');
+    await row2.getByRole('spinbutton', { name: 'Od' }).fill('15000');
+    await row2.getByRole('spinbutton', { name: 'Do' }).fill('20000');
     // The markdown preview renders live and never as raw HTML.
     await expect(page.getByTestId('description-preview').getByRole('heading', { name: 'Zadania' })).toBeVisible();
     await page.getByRole('button', { name: 'Opublikuj' }).click();

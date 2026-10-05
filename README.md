@@ -115,13 +115,13 @@ key. The same diagram is the single source `docs/diagrams/a1-system-context.mmd`
 
 | Project | Role | Direct dependencies |
 |---|---|---|
-| `src/WorkInPoland.AppHost` | P1 — the composition root, **development only** (Postgres, authservice, API, web). Not the production topology | @APPHOST_DEPS@ |
-| `src/WorkInPoland.ServiceDefaults` | P2 — the shared kernel: telemetry, health, discovery, resilience, JWT validation, CORS, OpenAPI, database provider, rate limiting, validation filter. Plumbing only; capped at 800 lines by CI | @KERNEL_DEPS@ |
-| `src/WorkInPoland.Contracts` | DTOs and constants that cross the HTTP boundary | @CONTRACTS_DEPS@ |
-| `src/WorkInPoland.Api` | The one service. Owns `apidb`; REST (`/api/v1`), the MCP adapter (`/mcp`, `/mcp/account`), migrations, listing expiry, demo seeding | @API_DEPS@ |
-| `web/app` | The Next.js product surface and BFF (Polish UI) | @WEB_DEPS@ |
-| `tests/WorkInPoland.Api.Tests` | xUnit: validation, search, salary maths, lifecycle, auth, MCP through a real client, architecture guards, migrations on a real Postgres | @TESTS_DEPS@ |
-| `tests/e2e` | Playwright against the real stack (Postgres + authservice + API + web), wired to CI | @E2E_DEPS@ |
+| `src/WorkInPoland.AppHost` | P1 — the composition root, **development only** (Postgres, authservice, API, web). Not the production topology | 2 packages (+ the Aspire SDK) |
+| `src/WorkInPoland.ServiceDefaults` | P2 — the shared kernel: telemetry, health, discovery, resilience, JWT validation, CORS, OpenAPI, database provider, rate limiting, validation filter. Plumbing only; capped at 800 lines by CI | 12 packages |
+| `src/WorkInPoland.Contracts` | DTOs and constants that cross the HTTP boundary | 0 |
+| `src/WorkInPoland.Api` | The one service. Owns `apidb`; REST (`/api/v1`), the MCP adapter (`/mcp`, `/mcp/account`), migrations, listing expiry, demo seeding | 2 packages + kernel + contracts |
+| `web/app` | The Next.js product surface and BFF (Polish UI) | 6 runtime + 14 dev |
+| `tests/WorkInPoland.Api.Tests` | xUnit: validation, search, salary maths, lifecycle, auth, MCP through a real client, architecture guards, migrations on a real Postgres | 5 packages |
+| `tests/e2e` | Playwright against the real stack (Postgres + authservice + API + web), wired to CI | 3 dev |
 
 *Dependency counts are direct package references — a number that goes up in a diff is a question
 somebody can ask* (REPO-BASELINE §4b). Identity is **not** a project here: authservice is run from its

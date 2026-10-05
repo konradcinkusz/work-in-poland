@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>WorkInPoland.Api</RootNamespace>
+    <AssemblyName>WorkInPoland.Api</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WorkInPoland.ServiceDefaults\WorkInPoland.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\WorkInPoland.Contracts\WorkInPoland.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WorkInPoland.Api.Tests" />
+  </ItemGroup>
+
+</Project>

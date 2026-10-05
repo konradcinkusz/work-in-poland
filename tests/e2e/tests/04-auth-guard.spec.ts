@@ -10,7 +10,7 @@ test.describe('auth guard', () => {
 
     // Wrong password: a generic message that does not reveal whether the account exists.
     await login(page, { ...user, password: 'Wrong-Passw0rd!' });
-    await expect(page.getByRole('alert')).toHaveText('Nieprawidłowy e-mail lub hasło.');
+    await expect(page.getByRole('alert').filter({ hasText: 'Nieprawidłowy e-mail lub hasło.' })).toHaveCount(1);
 
     await login(page, user);
     await expect(page).toHaveURL(/\/konto$/);
@@ -20,7 +20,7 @@ test.describe('auth guard', () => {
   test('unknown e-mail gets the same message as a wrong password', async ({ page }) => {
     await page.goto('/logowanie');
     await login(page, { email: `nobody-${Date.now()}@example.com`, password: 'Wrong-Passw0rd!' });
-    await expect(page.getByRole('alert')).toHaveText('Nieprawidłowy e-mail lub hasło.');
+    await expect(page.getByRole('alert').filter({ hasText: 'Nieprawidłowy e-mail lub hasło.' })).toHaveCount(1);
   });
 
   test('a forged session cookie (valid payload, future exp, wrong signature) is rejected and cleared', async ({ page, context, baseURL }) => {

@@ -1,0 +1,22 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsAspireHost>true</IsAspireHost>
+    <!-- Secrets come from dotnet user-secrets (scripts/setup.sh), never from this file. -->
+    <UserSecretsId>work-in-poland-apphost</UserSecretsId>
+    <!-- "dotnet run" on this project is the supported entry point and needs no Aspire CLI
+         bundle; ASPIRE010 only tells us the bundle's extra features are off. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WorkInPoland.Api\WorkInPoland.Api.csproj" />
+  </ItemGroup>
+
+</Project>

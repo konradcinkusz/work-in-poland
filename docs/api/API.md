@@ -281,6 +281,7 @@ Environment variables use `__` for `:`. Everything optional degrades (P8) and is
 | `Cors:AllowedOrigins:<n>` | optional | Web origin(s). Same-origin BFF means this is rarely needed |
 | `Network:ClientIpHeader`, `Network:TrustProxyClientIpHeader` | tuning | `Fly-Client-IP` / `true` on Fly only |
 | `Jobs:ListingLifetimeDays`, `Jobs:MaxPublishedPerCompany` | tuning | 30 / 25 |
+| `RateLimiting:ApiPermitsPerMinute`, `PublicPermitsPerMinute`, `GlobalPermitsPerMinute`, `MaxConcurrentRequests` | tuning | 240 / 120 / 600 / 200 per client per minute; the last is the process-wide concurrency bound |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | optional | Absent ⇒ no export; health probes are filtered out of traces regardless |
 
 ## 11. What the web BFF consumes from authservice
@@ -309,3 +310,13 @@ Authservice's emails link to `FrontendBaseUrl`: `<it>/reset-password?token=…&e
 The web BFF stores the token pair in `httpOnly`, `secure` (outside development),
 `sameSite=strict` cookies, injects the access token as `Authorization: Bearer` when it proxies
 to `/api/v1/**`, and verifies the JWT signature, issuer and audience in middleware.
+
+## 12. Decisions the contract left open (as implemented)
+
+- Request enumerations are strings, so an invalid value is a `400` `errors` entry, not a binding failure. Services run the §7 rules themselves, so REST and MCP behave identically.
+- `JobInput.publish` is read on create only. Company input: `name` 2–120, `website` required https, `city` ≤ 100.
+- The public company list, `GET /companies/{slug}` and `stats.companies` only include companies that have **ever published** a job (never-published → `404`).
+- Tracker `appliedAt` is set the first time status becomes `applied`, `interviewing` or `offer`, and never moves. Omitting `notes` on upsert keeps the existing note.
+- `renew` sets `publishedAt = now`. A listing unpublished by an admin cannot be renewed by its owner (`409`). `promote` needs a live published job (`409` otherwise).
+- Bare `403`s carry a problem body; `401` has none. `sort=salary` ranks by the highest month-normalised max in the requested currency. The benchmark reads at most 5000 midpoints.
+- MCP runs stateless Streamable HTTP (any Fly machine can answer). `/mcp/account` and its metadata are mapped only when both `Mcp:ResourceUri` and `Mcp:AuthorizationServer` are set; only the first set ⇒ `/health` `mcpAccount: "misconfigured (…)"`. There is deliberately no MCP tool for data export or deletion.
