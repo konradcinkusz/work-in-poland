@@ -49,7 +49,7 @@ test.describe.serial('Account settings (2FA, password change, profile)', () => {
 
     await page.goto('/konto/ustawienia');
     await page.getByLabel('Bieżące hasło').fill(user.password);
-    await page.getByLabel('Nowe hasło').fill(newPassword);
+    await page.getByLabel('Nowe hasło', { exact: true }).fill(newPassword);
     await page.getByLabel('Potwierdź nowe hasło').fill(newPassword);
 
     await page.getByRole('button', { name: 'Zmień hasło' }).click();
@@ -113,7 +113,7 @@ test.describe.serial('Account settings (2FA, password change, profile)', () => {
 
     // Fill mismatched passwords
     await page.getByLabel('Bieżące hasło').fill(user.password);
-    await page.getByLabel('Nowe hasło').fill('Test123456!');
+    await page.getByLabel('Nowe hasło', { exact: true }).fill('Test123456!');
     await page.getByLabel('Potwierdź nowe hasło').fill('DifferentPassword456!');
 
     await page.getByRole('button', { name: 'Zmień hasło' }).click();
