@@ -21,6 +21,7 @@ primary_region = "waw"
   PUBLIC_SITE_URL = "https://work-in-poland-web-prod.fly.dev"
   CONSENT_TERMS_VERSION = "2026-10-05"
   CONSENT_PRIVACY_VERSION = "2026-10-05"
+  CONSENT_COOKIES_VERSION = "2026-10-05"
 
 [http_service]
   internal_port = 3000

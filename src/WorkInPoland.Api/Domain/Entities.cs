@@ -128,3 +128,34 @@ public sealed class TrackedJob
 
     public DateTime UpdatedAt { get; set; }
 }
+
+public sealed class JobReport
+{
+    public Guid Id { get; set; }
+
+    public Guid JobId { get; set; }
+
+    public JobListing Job { get; set; } = null!;
+
+    /// <summary>Reason for the report (illegal, discrimination, scam, misleading, other).</summary>
+    public string Reason { get; set; } = string.Empty;
+
+    /// <summary>Optional details about the report (max 1000 characters).</summary>
+    public string? Details { get; set; }
+
+    /// <summary>Optional contact email for follow-up (should not be logged publicly).</summary>
+    public string? ContactEmail { get; set; }
+
+    /// <summary>Status of the report (open, actioned, dismissed).</summary>
+    public string Status { get; set; } = "open";
+
+    /// <summary>Admin user ID who resolved the report, if any.</summary>
+    public string? ResolvedBy { get; set; }
+
+    /// <summary>Note from the admin, visible to the reporter if contacted.</summary>
+    public string? ResolveNote { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime? ResolvedAt { get; set; }
+}

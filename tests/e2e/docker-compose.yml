@@ -95,6 +95,7 @@ services:
       PUBLIC_SITE_URL: http://localhost:3000
       CONSENT_TERMS_VERSION: "2026-10-05"
       CONSENT_PRIVACY_VERSION: "2026-10-05"
+      CONSENT_COOKIES_VERSION: "2026-10-05"
       # The stack is plain http on localhost; a `secure` cookie would never be sent back.
       SESSION_COOKIE_SECURE: "false"
     ports:

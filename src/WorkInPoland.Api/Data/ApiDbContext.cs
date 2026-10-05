@@ -15,6 +15,8 @@ public sealed class ApiDbContext(DbContextOptions<ApiDbContext> options) : DbCon
 
     public DbSet<TrackedJob> TrackedJobs => Set<TrackedJob>();
 
+    public DbSet<JobReport> JobReports => Set<JobReport>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Company>(e =>
@@ -82,6 +84,20 @@ public sealed class ApiDbContext(DbContextOptions<ApiDbContext> options) : DbCon
             e.Property(t => t.Status).HasMaxLength(20);
             e.Property(t => t.Notes).HasMaxLength(2000);
             e.HasOne(t => t.Job).WithMany().HasForeignKey(t => t.JobId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<JobReport>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.Reason).HasMaxLength(20);
+            e.Property(r => r.Details).HasMaxLength(1000);
+            e.Property(r => r.ContactEmail).HasMaxLength(320);
+            e.Property(r => r.Status).HasMaxLength(20);
+            e.Property(r => r.ResolvedBy).HasMaxLength(128);
+            e.Property(r => r.ResolveNote).HasMaxLength(1000);
+            e.HasOne(r => r.Job).WithMany().HasForeignKey(r => r.JobId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(r => r.Status);
+            e.HasIndex(r => new { r.JobId, r.CreatedAt });
         });
     }
 }
