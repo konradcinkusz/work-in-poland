@@ -1,0 +1,24 @@
+flowchart LR
+    subgraph Users["People and assistants"]
+        C["Candidate<br/>(browser)"]
+        E["Employer<br/>(browser)"]
+        AI["AI assistant<br/>(Claude, Cursor, …)"]
+    end
+
+    subgraph Fly["Fly.io — region waw"]
+        WEB["<b>web</b><br/>Next.js BFF<br/><i>scale to zero</i>"]
+        API["<b>api</b><br/>REST + MCP<br/><i>1 machine</i>"]
+        AUTH["<b>authservice</b><br/>published image<br/><i>1 machine</i>"]
+        PG[("<b>postgres</b><br/>apidb · authdb")]
+    end
+
+    C & E -->|"HTTPS, own origin only"| WEB
+    WEB -->|"bearer from httpOnly cookie"| API
+    WEB -->|"sign-in, register, refresh"| AUTH
+    AI -->|"/mcp anonymous"| API
+    AI -->|"/mcp/account OAuth 2.1 + PKCE"| AUTH
+    AI -.->|"MCP token (aud = /mcp/account)"| API
+    API -->|"JWKS (validate only)"| AUTH
+    WEB -->|"JWKS (verify in middleware)"| AUTH
+    API --- PG
+    AUTH --- PG

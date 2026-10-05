@@ -1,0 +1,84 @@
+% ============================================================================
+% work-in-poland: a project overview.
+%
+% THIS IS NOT A RESEARCH PAPER under 00-RESEARCH-DOCUMENTATION.md. It is a
+% project overview (INIT-GENERIC-TEMPLATE section 9): it makes no empirical
+% claim, runs no study, and introduces no fact its markdown sources
+% (README.md, docs/adr/, docs/api/API.md, docs/analysis/) do not carry. If it
+% disagrees with them, they are the document and this is stale.
+%
+% \paperstatus is repurposed accordingly: it says DRAFT because the system it
+% describes has not been pre-sold (ADR 0010), not because a study is unverified.
+%
+% Build (PDFs are build output -- never committed): the manual-only workflow
+% .github/workflows/build-overview-pdf.yml. Only this .tex is committed.
+% ============================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\paperstatus}{DRAFT}
+\newcommand{\headerleft}{work-in-poland --- Overview}
+\newcommand{\pdftitleline}{work-in-poland: an overview}
+\newcommand{\pdfauthorline}{Konrad Cinkusz}
+\input{house-preamble}
+
+\begin{document}
+
+\housetitle
+    {work-in-poland}
+    {An MCP-first job board for the Polish market}
+    {Konrad Cinkusz}
+    {https://github.com/konradcinkusz/work-in-poland}
+    {sources: \texttt{README.md}, \texttt{docs/adr/}, \texttt{docs/api/API.md}, \texttt{docs/analysis/}}
+
+\begin{abstract}
+\noindent work-in-poland is a job board for Poland that an AI assistant can use directly:
+searching jobs, comparing salaries, tracking applications and, for employers, posting jobs through
+conversation. It is a deployable platform, not a proven market --- the analysis it follows
+recommends validating demand with portals and employers before choosing between a niche board, an
+MCP layer sold to existing boards, or a portfolio project, and none of that has happened yet.
+\end{abstract}
+
+\section{What it is, and what it refuses to be}
+
+Listings are submitted by the employer. Applying is a redirect to the employer's own page: no CV is
+stored or forwarded (\texttt{ADR 0004}), which keeps the system on the publishing side of the line
+between publishing job ads and mediating employment. A listing cannot be published without a salary
+range, and contract type and gross/net basis are separate fields (\texttt{ADR 0007}).
+
+\section{Shape}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\linewidth]{\dgm{a1-system-context}}
+\caption{System context. Identity is a separate, published service; the API only validates its tokens.}
+\end{figure}
+
+One service owns the data (\repopath{WorkInPoland.Api}); the MCP server is an adapter inside it
+(\texttt{ADR 0002}). Identity is \repopath{authservice}, run from its published image. The web app
+is a Next.js backend-for-frontend: the browser talks only to its own origin.
+
+\section{A listing's life}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.7\linewidth]{\dgm{a2-job-lifecycle}}
+\caption{Listing states. Publishing re-runs every validation rule; expiry is a read-time property, not
+only a sweep.}
+\end{figure}
+
+\section{Decisions worth knowing}
+
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+ADR & Decision \\
+\midrule
+0002 & MCP is an adapter in the API, not a second service \\
+0003 & authservice is the only identity provider; MCP sign-in is its hosted OAuth 2.1 flow \\
+0004 & Apply by redirect; no CV storage \\
+0005 & No payments yet; promotion is granted by an operator \\
+0007 & Mandatory salary ranges \\
+0010 & Build the platform; the go-to-market gates stay business decisions \\
+\bottomrule
+\end{tabularx}
+
+\end{document}

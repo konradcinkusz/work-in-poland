@@ -1,0 +1,51 @@
+# One Postgres instance, one database per service (P3, FLY-IO-DEPLOYMENT §8): apidb and authdb,
+# each with its own role holding no rights on the other.
+app = "work-in-poland-postgres"
+primary_region = "waw"
+
+# No [http_service] and no [[services]] block, deliberately. This app is reached only at
+# work-in-poland-postgres.internal:5432 over Fly's private 6PN network. A database with a public
+# listener is a database waiting to be scanned. It never scales to zero (so the .internal
+# no-auto-start caveat does not apply), and it is deployed with --ha=false: a second machine would
+# get a second EMPTY volume, not a replica.
+
+[build]
+  image = "postgres:17-alpine"        # a pinned major, not `latest`
+
+[env]
+  POSTGRES_USER = "wip_admin"
+  POSTGRES_DB = "postgres"
+  # A SUBDIRECTORY of the mount: the volume root carries lost+found and initdb refuses a
+  # non-empty data directory.
+  PGDATA = "/var/lib/postgresql/data/pgdata"
+  POSTGRES_INITDB_ARGS = "--encoding=UTF8 --locale=C"
+
+[[mounts]]
+  source = "work_in_poland_pgdata"
+  destination = "/var/lib/postgresql/data"
+  initial_size = "5gb"                # growing later is possible; shrinking is not
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+
+# Runs on FIRST BOOT ONLY (the postgres entrypoint executes /docker-entrypoint-initdb.d/*.sh only
+# when the data directory is empty). POSTGRES_PASSWORD, APIDB_PASSWORD and AUTHDB_PASSWORD are Fly
+# secrets; they are generated alphanumeric because +, / = and ; mean something inside a connection
+# string. ON_ERROR_STOP and the :? guards make a half-initialised first boot fail loudly.
+[[files]]
+  guest_path = "/docker-entrypoint-initdb.d/01-create-databases.sh"
+  raw_value = """
+#!/bin/sh
+set -eu
+: "${APIDB_PASSWORD:?APIDB_PASSWORD secret is not set}"
+: "${AUTHDB_PASSWORD:?AUTHDB_PASSWORD secret is not set}"
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+  CREATE ROLE api LOGIN PASSWORD '$APIDB_PASSWORD';
+  CREATE ROLE auth LOGIN PASSWORD '$AUTHDB_PASSWORD';
+  CREATE DATABASE apidb OWNER api;
+  CREATE DATABASE authdb OWNER auth;
+  REVOKE ALL ON DATABASE apidb FROM PUBLIC;
+  REVOKE ALL ON DATABASE authdb FROM PUBLIC;
+EOSQL
+"""
